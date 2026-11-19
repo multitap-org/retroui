@@ -125,6 +125,8 @@ static const GlyphPicture GLYPHS[] = {
     { PIXEL_FONT_ARROW_RIGHT, { ".#...", ".##..", ".###.", ".##..", ".#..." } },
     { PIXEL_FONT_CHECK,       { "....#", "...##", "#.##.", "###..", ".#..." } },
     { PIXEL_FONT_MENU,        { "#####", ".....", "#####", ".....", "#####" } },
+    // An arc from the bottom left over the top, its head pointing down on the right.
+    { PIXEL_FONT_ROTATE,      { ".###.", "#...#", "#.###", "#..#.", ".#..." } },
     // The hold spinner: a ring filling clockwise from the top, one pixel a frame, until it is almost
     // the O (the full ring would be the O itself: no two glyphs may look the same).
     { PIXEL_FONT_SPINNER_FIRST + 0, { "..#..", ".....", ".....", ".....", "....." } },

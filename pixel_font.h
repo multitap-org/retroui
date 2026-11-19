@@ -32,6 +32,7 @@ constexpr uint32_t PIXEL_FONT_ARROW_LEFT  = 0x25C0;   // BLACK LEFT-POINTING TRI
 constexpr uint32_t PIXEL_FONT_ARROW_RIGHT = 0x25B6;   // BLACK RIGHT-POINTING TRIANGLE
 constexpr uint32_t PIXEL_FONT_CHECK       = 0x2714;   // HEAVY CHECK MARK
 constexpr uint32_t PIXEL_FONT_MENU        = 0x2630;   // TRIGRAM FOR HEAVEN (the "hamburger" menu)
+constexpr uint32_t PIXEL_FONT_ROTATE      = 0x21BB;   // CLOCKWISE OPEN CIRCLE ARROW (rotate the screen)
 // The hold spinner's frames (Private Use Area): frame N lights N + 1 pixels
 // of a ring, clockwise from the top; the last one is the O but for a pixel.
 constexpr uint32_t PIXEL_FONT_SPINNER_FIRST  = 0xE000;

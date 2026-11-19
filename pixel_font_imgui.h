@@ -20,6 +20,7 @@ constexpr const char* PIXEL_FONT_UTF8_ARROW_LEFT = "\xE2\x97\x80";   // U+25C0
 constexpr const char* PIXEL_FONT_UTF8_ARROW_RIGHT = "\xE2\x96\xB6";   // U+25B6
 constexpr const char* PIXEL_FONT_UTF8_CHECK = "\xE2\x9C\x94";   // U+2714
 constexpr const char* PIXEL_FONT_UTF8_MENU = "\xE2\x98\xB0";    // U+2630
+constexpr const char* PIXEL_FONT_UTF8_ROTATE = "\xE2\x86\xBB";  // U+21BB
 
 // Adds the font to ImGui's atlas. Returns nullptr (and logs) on failure.
 ImFont* pixel_font_imgui_add();
