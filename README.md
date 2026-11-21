@@ -9,6 +9,9 @@ The retro-style UI shared by multitap's frontends (piccolo, piccoletto):
   ImGui widgets: menu bar, windows with bevels, buttons, lists, combos,
   check boxes, scroll bars, text shadows, the theme cursor.
 - `pad_picture`: a controller drawn as blocks, one part lit.
+- `ports_view`: who plays on which port: tabs that rise from the bottom left
+  when a port changes, and the full-screen DEVICES board; `port_indicators.h`
+  the port LEDs and ping bars (sizes, colors, thresholds).
 - `tools/pixel_font_preview`: a PNG of every glyph; `--check` is a test.
 
 A library: it doesn't build on its own. A frontend adds it as a submodule

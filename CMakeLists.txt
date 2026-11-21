@@ -1,6 +1,6 @@
 # retroui: the retro-style UI shared by multitap's frontends (piccolo,
 # piccoletto): the 5x5 pixel font, the themes (palettes), themed Dear ImGui
-# widgets and the controller picture.
+# widgets, the controller picture and the ports view (tabs, DEVICES board).
 # A library: it doesn't build alone. The frontend adds hosts-common and
 # frontends-common first (pad_picture draws frontends-common's input layouts)
 # and defines imgui and SDL3::SDL3.
@@ -18,6 +18,7 @@ add_library(retroui STATIC
     pixel_font_imgui.cpp
     retro_ui.cpp
     pad_picture.cpp
+    ports_view.cpp
 )
 target_include_directories(retroui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(retroui PUBLIC retroui_font imgui SDL3::SDL3 frontend_common)
