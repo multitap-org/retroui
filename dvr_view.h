@@ -16,8 +16,7 @@
 // The game isn't drawn here: the frontend draws it shrunk into the space
 // above (dvr_view_height says how much the strip takes).
 //
-// A HUD indicator (no input, never in the way): a small card at the top
-// left for a moment ("◀◀ PLAYING FROM -0:27.8").
+// Its HUD (the PLAY state icon, why it didn't open) is hud_view's.
 
 #include <cstdint>
 
@@ -90,7 +89,3 @@ float dvr_view_height(const DvrView* view, int32_t scale);
 // The strip, above every window (it is one: the DVR's GUI).
 void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const DvrViewText* text,
                    DvrViewInput* input);
-
-// The HUD indicator: shown for a while after `since_ms`, then it fades.
-// Draws nothing once it has faded (or with since_ms 0).
-void dvr_view_draw_hud(ImFont* pixel_font, int32_t scale, const char* text, uint64_t since_ms, uint64_t now_ms);

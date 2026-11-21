@@ -30,9 +30,6 @@ constexpr uint32_t CARD_ALPHA = 0xB0000000u;
 constexpr uint32_t DIM_ALPHA  = 0x9E000000u;   // a thumbnail that isn't selected (62%)
 constexpr uint32_t AFTER_ALPHA = 0x66000000u;  // one after the cursor (40%)
 
-// The HUD indicator.
-constexpr uint64_t HUD_MS      = 2500;
-constexpr uint64_t HUD_FADE_MS = 500;
 
 static bool clicked_in(float x, float y, float width, float height)
 {
@@ -274,27 +271,5 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
         draw_track(view, below + 2.0f * block, width, block, centres);
         draw_hints(view, below + (TRACK + GAP) * block, width, block, input);
     }
-    retro_ui_end_layer();
-}
-
-void dvr_view_draw_hud(ImFont* pixel_font, int32_t scale, const char* text, uint64_t since_ms, uint64_t now_ms)
-{
-    if (since_ms == 0 || now_ms < since_ms || now_ms - since_ms >= HUD_MS + HUD_FADE_MS)
-    {
-        return;
-    }
-    float fade = 1.0f;
-    if (now_ms - since_ms > HUD_MS)
-    {
-        fade = 1.0f - static_cast<float>(now_ms - since_ms - HUD_MS) / static_cast<float>(HUD_FADE_MS);
-    }
-    const RetroUiPalette* palette = retro_ui_palette();
-    float block = static_cast<float>(scale > 0 ? scale : 1);
-    retro_ui_begin_layer("##dvr_hud", pixel_font, scale, false);
-    float w = std::floor(retro_ui_layer_text_width(text)) + 2.0f * CHIP_PAD * block;
-    uint32_t card = static_cast<uint32_t>(static_cast<float>(CARD_ALPHA >> 24) * fade) << 24;
-    uint32_t ink = static_cast<uint32_t>(255.0f * fade) << 24;
-    retro_ui_layer_rect(MARGIN * block, MARGIN * block, w, CHIP * block, retro_ui_color_set_alpha(palette->panel_dark, card));
-    retro_ui_layer_text((MARGIN + CHIP_PAD) * block, (MARGIN + 2.0f) * block, text, retro_ui_color_set_alpha(palette->section, ink));
     retro_ui_end_layer();
 }
