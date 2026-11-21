@@ -34,11 +34,14 @@ constexpr float BOARD_GAP    = 4.0f;
 constexpr float COLUMN_MIN   = 90.0f;   // narrower than this, the columns scroll instead (4 fit a phone)
 constexpr float DONE_WIDTH   = 40.0f;
 constexpr float ARROW_WIDTH  = 12.0f;
+constexpr float BOARD_SHEET     = 0.4f;   // the share of the screen the board takes from the bottom...
+constexpr float BOARD_SHEET_MAX = 0.7f;   // ...more only if a column needs it, up to this
 
 // Over the game: cards the game shows through (piccoletto's). The frontend
 // dims the game behind the board itself (piccolo's BACKDROP), not this.
 constexpr uint32_t CARD_ALPHA = 0xB0000000u;
 constexpr uint32_t LIT_ALPHA  = 0xD8000000u;   // the tab of a port that changed
+constexpr uint32_t SHEET_ALPHA = 0x80000000u;  // the board's sheet, behind its cards
 
 // Timing.
 constexpr uint64_t POP_MS     = 3000;   // the tabs stay up this long after a change
@@ -455,7 +458,14 @@ static bool clicked_in(float x, float y, float width, float height)
            io.MousePos.y < y + height;
 }
 
-void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text,
+void ports_view_open_board(PortsView* view)
+{
+    view->board_rise = 0.0f;
+    view->board_last_ms = 0;
+    view->scroll = -1.0f;
+}
+
+void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
                            PortsViewBoardInput* input)
 {
     *input = PortsViewBoardInput{};
@@ -468,13 +478,36 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float block = static_cast<float>(scale);
     float screen_width = io.DisplaySize.x;
     float screen_height = io.DisplaySize.y;
+
+    // A sheet from the bottom (where the tabs are): 40% of the screen, taller
+    // (up to 70%) only if the tallest column needs it; it slides up.
+    float tallest = 0.0f;
+    for (uint32_t c = 0; c < board_columns(view); c++)
+    {
+        int32_t port = 0;
+        float height = card_height(view, board_column(view, c, &port));
+        tallest = height > tallest ? height : tallest;
+    }
+    float needed = (2.0f * BOARD_MARGIN + BOARD_HEADER + BOARD_HINT + 2.0f * BOARD_GAP + tallest) * block;
+    float sheet_height = needed < BOARD_SHEET * screen_height ? BOARD_SHEET * screen_height : needed;
+    sheet_height = sheet_height > BOARD_SHEET_MAX * screen_height ? BOARD_SHEET_MAX * screen_height : sheet_height;
+    float dt = view->board_last_ms == 0 || now_ms < view->board_last_ms
+                   ? 0.0f
+                   : static_cast<float>(now_ms - view->board_last_ms) / 1000.0f;
+    view->board_last_ms = now_ms;
+    dt = dt > 0.1f ? 0.1f : dt;
+    view->board_rise += (1.0f - view->board_rise) * (1.0f - std::exp(-EASE_RATE * dt));
+    view->board_rise = view->board_rise > 0.995f ? 1.0f : view->board_rise;
+    float sheet_top = std::floor(screen_height - sheet_height * view->board_rise);
     retro_ui_begin_layer("##ports_board", pixel_font, scale, true);
+    retro_ui_layer_rect(0.0f, sheet_top, screen_width, sheet_height, with_alpha(palette->panel_dark, SHEET_ALPHA));
+    retro_ui_layer_rect(0.0f, sheet_top, screen_width, block, palette->panel_light);   // its top edge
 
     // The title bar with DONE, and the hint under it (piccoletto's).
     float margin = BOARD_MARGIN * block;
     float gap = BOARD_GAP * block;
     float inner_width = screen_width - 2.0f * margin;
-    float header_y = margin;
+    float header_y = sheet_top + margin;
     float header_height = BOARD_HEADER * block;
     float done_width = DONE_WIDTH * block;
     float text_offset = std::floor((BOARD_HEADER - LINE) * 0.5f) * block;
@@ -496,7 +529,8 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
 
     // The columns side by side; scrolled when they don't fit.
     float content_y = hint_y + hint_height + gap;
-    float content_height = screen_height - content_y - margin;
+    float content_height = sheet_top + sheet_height - content_y - margin;   // (down to the sheet's bottom)
+    content_height = content_height < 0.0f ? 0.0f : content_height;
     uint32_t columns = board_columns(view);
     float column_width = (inner_width - static_cast<float>(columns - 1) * gap) / static_cast<float>(columns);
     float minimum = COLUMN_MIN * block;
@@ -522,14 +556,7 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     {
         view->scroll = view->scroll_target;
     }
-    // Cards as tall as the tallest, so they line up.
-    float tallest = 0.0f;
-    for (uint32_t c = 0; c < columns; c++)
-    {
-        int32_t port = 0;
-        float height = card_height(view, board_column(view, c, &port));
-        tallest = height > tallest ? height : tallest;
-    }
+    // Cards as tall as the tallest (measured above), so they line up.
     float card = tallest * block;
     card = card > content_height ? content_height : card;
 

@@ -9,7 +9,8 @@
 //          changed rise whole (who is on them); about 3 s later they go down.
 //          With `peek` they stay at their first line (piccolo's menu).
 //          Animated, behind every window; more than 4 overlap.
-//   BOARD  full screen over the game (the frontend dims the game behind it):
+//   BOARD  a sheet from the bottom, 40% of the screen, sliding up (the
+//          frontend dims the game behind it):
 //          a column per port (OUT first, when shown), scrolled sideways when
 //          they don't fit. A click / tap picks a chip, a click on another
 //          column asks to move it there, DONE closes. The frontend does the
@@ -80,6 +81,8 @@ struct PortsView
     uint32_t picked = 0;                 // a chip's key
     float    scroll = -1.0f;             // window pixels (-1: placed at once next draw)
     float    scroll_target = 0.0f;
+    float    board_rise = 0.0f;           // how far the sheet has slid up (0..1; animated)
+    uint64_t board_last_ms = 0;
 };
 
 // No game: nothing shown, nothing remembered.
@@ -116,6 +119,10 @@ struct PortsViewBoardInput
     int32_t  port = -1;
 };
 
-// The board, above everything; a click on a chip picks it.
-void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text,
+// The board opens: it slides up from the bottom again (and scrolls to the pick).
+void ports_view_open_board(PortsView* view);
+
+// The board, above everything: a sheet from the bottom (40% of the screen,
+// more only if a column needs it); a click on a chip picks it.
+void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
                            PortsViewBoardInput* input);
