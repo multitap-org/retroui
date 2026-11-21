@@ -19,6 +19,7 @@ add_library(retroui STATIC
     pixel_font_imgui.cpp
     retro_ui.cpp
     retro_ui_theme.cpp
+    shader_check_view.cpp
     pad_picture.cpp
     ports_view.cpp
     port_indicators.cpp
