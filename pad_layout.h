@@ -97,6 +97,10 @@ void pad_layout_reset(PadLayout* layout);
 void pad_layout_load(PadLayout* layout, const SettingsFile* file);
 void pad_layout_save(const PadLayout* layout, SettingsFile* file);
 
+// The opacity from the frontend's setting: the default, and the alpha too
+// unless EDIT LAYOUT set one for this layout.
+void pad_layout_set_default_alpha(PadLayout* layout, float alpha);
+
 // Whether any part belongs to `group` (a layout without sticks has none).
 bool pad_layout_has_group(const PadLayout* layout, PadGroup group);
 

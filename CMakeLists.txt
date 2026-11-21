@@ -42,4 +42,10 @@ if(MULTITAP_BUILD_TESTS)
     # Table well formed, no character defined twice, no two glyphs identical.
     add_test(NAME retroui_pixel_font COMMAND pixel_font_preview --check)
     set_tests_properties(retroui_pixel_font PROPERTIES PASS_REGULAR_EXPRESSION "table OK")
+
+    # Where the touch pad goes around a picture (landscape, below, over a tall one).
+    add_executable(retroui_pad_placement_test tests/pad_placement_test.cpp)
+    target_link_libraries(retroui_pad_placement_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_pad_placement_test)
+    add_test(NAME retroui_pad_placement COMMAND retroui_pad_placement_test)
 endif()

@@ -1,5 +1,7 @@
 #include "pad_layouts.h"
 
+#include <cmath>
+
 #include "pixel_font_imgui.h"
 
 // Short names for the tables.
@@ -136,4 +138,53 @@ void pad_layouts_init(PadLayouts* layouts)
 PadLayout* pad_layouts_get(PadLayouts* layouts, PadLayoutId id)
 {
     return &layouts->layouts[static_cast<int32_t>(id)];
+}
+
+void pad_layouts_load_file(PadLayouts* layouts, const SettingsFile* file)
+{
+    for (int32_t i = 0; i < PAD_LAYOUT_COUNT; i++)
+    {
+        pad_layout_load(&layouts->layouts[i], file);
+    }
+}
+
+void pad_layouts_save_file(const PadLayouts* layouts, SettingsFile* file)
+{
+    for (int32_t i = 0; i < PAD_LAYOUT_COUNT; i++)
+    {
+        pad_layout_save(&layouts->layouts[i], file);
+    }
+}
+
+PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap)
+{
+    PadPlacement placement;
+    placement.picture_height = height;
+    if (width >= height)
+    {
+        const PadLayout* overlay = pad_layouts_get(layouts, PadLayoutId::remote_overlay_landscape);
+        placement.id = PadLayoutId::remote_overlay_landscape;
+        placement.frame = pad_frame_fit_into(overlay->width, overlay->height, 0.0f, 0.0f, width, height);
+        placement.frame.y = std::floor(height - overlay->height * placement.frame.dp_scale);
+        return placement;
+    }
+    // The picture across the top: does the pad still fit under it?
+    float picture = std::floor(aspect > 0.0f ? width / aspect : width);
+    picture = picture > height ? height : picture;
+    float top = picture + gap;
+    float room = height - top;
+    const PadLayout* below = pad_layouts_get(layouts, PadLayoutId::remote_below);
+    PadFrame frame = pad_frame_fit_into(below->width, below->height, 0.0f, top, width, room > 0.0f ? room : 0.0f);
+    if (frame.dp_scale >= PAD_MIN_BELOW_SCALE)
+    {
+        placement.id = PadLayoutId::remote_below;
+        placement.frame = frame;
+        placement.below = true;
+        placement.picture_height = picture;
+        return placement;
+    }
+    const PadLayout* overlay = pad_layouts_get(layouts, PadLayoutId::remote_overlay_portrait);
+    placement.id = PadLayoutId::remote_overlay_portrait;
+    placement.frame = pad_frame_fit_into(overlay->width, overlay->height, 0.0f, 0.0f, width, height);
+    return placement;
 }

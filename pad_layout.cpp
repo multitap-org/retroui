@@ -101,6 +101,15 @@ void pad_layout_save(const PadLayout* layout, SettingsFile* file)
     settings_file_set(file, layout->name, "alpha", layout->alpha_set ? value : "");
 }
 
+void pad_layout_set_default_alpha(PadLayout* layout, float alpha)
+{
+    layout->default_alpha = alpha;
+    if (!layout->alpha_set)
+    {
+        layout->alpha = alpha;
+    }
+}
+
 bool pad_layout_has_group(const PadLayout* layout, PadGroup group)
 {
     for (int32_t i = 0; i < layout->count; i++)
