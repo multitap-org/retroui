@@ -72,6 +72,7 @@ struct PortsView
     float    target[PORTS_VIEW_MAX_PORTS] = {};
     uint64_t target_ms[PORTS_VIEW_MAX_PORTS] = {}; // when it may start toward `target` (staggered)
     uint64_t last_draw_ms = 0;
+    float    screen_width = 0.0f;                  // retro pixels, at the last draw (the tabs overlap to fit)
 
     // The board.
     bool     has_pick = false;
@@ -94,9 +95,10 @@ bool ports_view_tabs_visible(const PortsView* view);
 float ports_view_tabs_width(const PortsView* view);
 
 // The tabs, behind every window. `peek`: at their first line when nothing
-// changed; `hidden`: down (the board covers them).
+// changed; `hidden`: down (the board covers them); `front`: above every
+// window (a frontend that draws its screens in a window), else behind them.
 void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, bool peek,
-                          bool hidden, uint64_t now_ms);
+                          bool hidden, bool front, uint64_t now_ms);
 
 // The column a chip is in (-1 = OUT), or false.
 bool ports_view_find(const PortsView* view, uint32_t key, int32_t* column);

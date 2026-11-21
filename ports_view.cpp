@@ -14,7 +14,7 @@
 
 // The tabs.
 constexpr float TAB_WIDTH    = 96.0f;   // every tab, whatever it shows
-constexpr float TAB_OVERLAP  = 24.0f;   // more than 4 tabs: each covers this much of the one before
+constexpr float TAB_OVERLAP  = 24.0f;   // more than 4 tabs: each covers at least this much of the one before
 constexpr float TABS_LEFT    = 4.0f;
 constexpr float CARD_PADDING = 5.0f;
 constexpr float LINE         = 7.0f;    // a line of the pixel font (glyphs 1..5 of it)
@@ -31,7 +31,7 @@ constexpr float BOARD_MARGIN = 8.0f;
 constexpr float BOARD_HEADER = 15.0f;
 constexpr float BOARD_HINT   = 11.0f;
 constexpr float BOARD_GAP    = 4.0f;
-constexpr float COLUMN_MIN   = 100.0f;  // narrower than this, the columns scroll instead
+constexpr float COLUMN_MIN   = 90.0f;   // narrower than this, the columns scroll instead (4 fit a phone)
 constexpr float DONE_WIDTH   = 40.0f;
 constexpr float ARROW_WIDTH  = 12.0f;
 
@@ -308,9 +308,18 @@ static float card_height(const PortsView* view, const PortsViewColumn* column)
 // Tabs
 // ---------------------------------------------------------------------------
 
-static float tab_step(uint32_t count)
+// From one tab to the next: a whole tab; more than 4 overlap; and they
+// overlap more when they still don't fit the screen (a phone held upright).
+static float tab_step(const PortsView* view)
 {
-    return count > 4 ? TAB_WIDTH - TAB_OVERLAP : TAB_WIDTH;
+    uint32_t count = view->port_count;
+    float step = count > 4 ? TAB_WIDTH - TAB_OVERLAP : TAB_WIDTH;
+    if (count > 1 && view->screen_width > 0.0f)
+    {
+        float fits = (view->screen_width - 2.0f * TABS_LEFT - TAB_WIDTH) / static_cast<float>(count - 1);
+        step = fits < step ? std::floor(fits) : step;
+    }
+    return step < 1.0f ? 1.0f : step;
 }
 
 float ports_view_tabs_width(const PortsView* view)
@@ -319,7 +328,7 @@ float ports_view_tabs_width(const PortsView* view)
     {
         return 0.0f;
     }
-    return TABS_LEFT + static_cast<float>(view->port_count - 1) * tab_step(view->port_count) + TAB_WIDTH + STATUS_GAP;
+    return TABS_LEFT + static_cast<float>(view->port_count - 1) * tab_step(view) + TAB_WIDTH + STATUS_GAP;
 }
 
 static void draw_tab(const PortsView* view, uint32_t port, const PortsViewText* text, float block, float screen_height)
@@ -327,7 +336,7 @@ static void draw_tab(const PortsView* view, uint32_t port, const PortsViewText* 
     const RetroUiPalette* palette = retro_ui_palette();
     const PortsViewColumn* column = &view->ports[port];
     bool lit = view->changed[port] && view->popped_ms != 0;
-    float x = (TABS_LEFT + static_cast<float>(port) * tab_step(view->port_count)) * block;
+    float x = (TABS_LEFT + static_cast<float>(port) * tab_step(view)) * block;
     float y = screen_height - view->height[port] * block;
     float width = TAB_WIDTH * block;
     // The whole card; what hasn't risen yet is below the window's edge.
@@ -358,7 +367,7 @@ static void draw_tab(const PortsView* view, uint32_t port, const PortsViewText* 
 }
 
 void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, bool peek,
-                          bool hidden, uint64_t now_ms)
+                          bool hidden, bool front, uint64_t now_ms)
 {
     uint32_t count = view->port_count < PORTS_VIEW_MAX_PORTS ? view->port_count : PORTS_VIEW_MAX_PORTS;
     float dt = view->last_draw_ms == 0 || now_ms < view->last_draw_ms
@@ -366,6 +375,7 @@ void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, co
                    : static_cast<float>(now_ms - view->last_draw_ms) / 1000.0f;
     dt = dt > 0.1f ? 0.1f : dt;   // (a stall doesn't jump them)
     view->last_draw_ms = now_ms;
+    view->screen_width = ImGui::GetIO().DisplaySize.x / static_cast<float>(scale > 0 ? scale : 1);
     if (view->popped_ms != 0 && now_ms - view->popped_ms >= POP_MS)
     {
         view->popped_ms = 0;   // going down; the greyed chips go once they're down
@@ -418,7 +428,7 @@ void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, co
     }
     float block = static_cast<float>(scale);
     float screen_height = ImGui::GetIO().DisplaySize.y;
-    retro_ui_begin_layer("##ports_tabs", pixel_font, scale, false);
+    retro_ui_begin_layer("##ports_tabs", pixel_font, scale, front);
     // The ones that changed last, so they're on top where tabs overlap.
     for (uint32_t pass = 0; pass < 2; pass++)
     {
