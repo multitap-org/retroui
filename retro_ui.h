@@ -71,8 +71,9 @@ const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme);
 // The palette everything is drawn with from now on (copied).
 void retro_ui_set_palette(const RetroUiPalette* palette);
 
-// The scale for a window: about 640 retro pixels across, at least 1.
-int32_t retro_ui_scale_for_width(float window_width);
+// The scale for a window: the biggest whole block that leaves at least
+// 640 x 360 retro pixels, at least 1 (3 on a 1920 x 1080 window).
+int32_t retro_ui_scale_for_window(float window_width, float window_height);
 
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item
@@ -106,6 +107,25 @@ int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* 
 // One line of text at the bottom left of the window, behind other windows, in
 // the pixel font with a drop shadow.
 void retro_ui_status_line(ImFont* pixel_font, int32_t scale, const char* text);
+// The same, starting `left` retro pixels from the left (past the ports' tabs).
+void retro_ui_status_line_from(ImFont* pixel_font, int32_t scale, const char* text, float left);
+
+// The palette everything is drawn with now.
+const RetroUiPalette* retro_ui_palette();
+
+// Drawing over the game without widgets (the ports' tabs, DEVICES): a
+// full-screen layer that takes no input, with the pixel font at `scale`.
+// `front`: above every window; otherwise behind them all (like the status
+// line). Shapes and text in window pixels, colors ARGB (alpha used). A line
+// of text is 7 retro pixels: the glyphs start one below `y`. Pair begin / end
+// and clip / unclip.
+void  retro_ui_begin_layer(const char* id, ImFont* pixel_font, int32_t scale, bool front);
+void  retro_ui_end_layer();
+void  retro_ui_layer_rect(float x, float y, float width, float height, uint32_t argb);
+void  retro_ui_layer_text(float x, float y, const char* text, uint32_t argb);
+float retro_ui_layer_text_width(const char* text);
+void  retro_ui_layer_clip(float x, float y, float width, float height);
+void  retro_ui_layer_unclip();
 
 // The retro look for any window and widget between push and pop: palette,
 // pixel font at `scale`, square corners, spacing in retro pixels. Pair them.
@@ -137,6 +157,33 @@ void retro_ui_raised_item_edge();
 
 bool retro_ui_button(const char* label);
 bool retro_ui_button_sized(const char* label, float width, float height);
+
+// A countdown (e.g. "REVERT (12)" until it acts by itself): the seconds left
+// of `total_ms` started at `started_ms`, rounded up.
+int retro_ui_seconds_left(uint64_t now_ms, uint64_t started_ms, uint64_t total_ms);
+
+// A button whose label counts down: `format` has one %d for the seconds. Its
+// id stays the same while the number changes, so a click on it isn't lost
+// when the second ticks.
+bool retro_ui_countdown_button(const char* format, int seconds, const char* id);
+
+// An arrow drawn by hand (not a font glyph): 9 x 9 retro pixels, a shaft and
+// a head, on a raised button of `width` x `height`. The arrow is the button
+// text's color, the disabled text's inside BeginDisabled. For copying
+// things from one side to the other (SHARE); up / down for a portrait layout.
+enum class RetroUiArrow
+{
+    right,
+    left,
+    up,
+    down,
+};
+bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, float height);
+
+// A choice among a few values as a row of buttons (not a combo): the chosen
+// one stays pressed in (sunken, the highlight color, its label down a pixel),
+// the others raised. True when another one was clicked (*current changed).
+bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current);
 
 // The theme's mouse cursor, when the palette has one: hides the system's and
 // draws ours at the mouse. Call once per frame, after the UI; `visible`: the

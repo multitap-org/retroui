@@ -1,5 +1,7 @@
 #include "retro_ui.h"
 
+#include <cstdio>
+
 #include "imgui.h"
 #include "imgui_internal.h"   // DC.CurrLineTextBaseOffset: where ImGui puts a widget's text on its line
 
@@ -155,10 +157,33 @@ static void push_invisible_text()
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
-int32_t retro_ui_scale_for_width(float window_width)
+int32_t retro_ui_scale_for_window(float window_width, float window_height)
 {
-    int32_t scale = static_cast<int32_t>(window_width / 640.0f);
+    // The biggest whole block that still leaves 640 x 360 retro pixels: the
+    // UI is then the same share of any window (and the windows fit: MAP
+    // CONTROLLER is 252 + 24 tall). The display's scale (density) isn't
+    // added on top: a bigger block wouldn't fit, and the window's size is
+    // already in the display's units (points on macOS / Wayland, pixels on
+    // Android and Windows), so the UI has the same share either way. The
+    // SHIELD Portable (1920 x 1080 at 320 dpi) gets 3.
+    int32_t across = static_cast<int32_t>(window_width / 640.0f);
+    int32_t down = static_cast<int32_t>(window_height / 360.0f);
+    int32_t scale = across < down ? across : down;
     return scale < 1 ? 1 : scale;
+}
+
+// The pixel font at exactly 8 x block pixels per line. ImGui multiplies every
+// font size by style.FontScaleMain x style.FontScaleDpi; the display's scale
+// isn't wanted on top of the block (retro_ui_scale_for_window), so it's divided out.
+static void push_pixel_font(ImFont* pixel_font, float block)
+{
+    const ImGuiStyle& style = ImGui::GetStyle();
+    float imgui_scale = style.FontScaleMain * style.FontScaleDpi;
+    if (imgui_scale <= 0.0f)
+    {
+        imgui_scale = 1.0f;
+    }
+    ImGui::PushFont(pixel_font, PIXEL_FONT_IMGUI_UNIT * block / imgui_scale);
 }
 
 // With menu boxes the box is the title's highlight: ImGui's own (wider than
@@ -300,7 +325,7 @@ int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* 
     // Metrics in retro pixels x scale:
     //   bar  = 2 + 8 (font line) + 2 = 12, label padding 3,
     //   item = 8 (font line) + 2 spacing = 10, panel padding 2 (+4 text indent).
-    ImGui::PushFont(pixel_font, PIXEL_FONT_IMGUI_UNIT * block);
+    push_pixel_font(pixel_font, block);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f * block, 2.0f * block));
     // 4 retro pixels between menu titles (Andrés: 2 was too tight, 8 too loose).
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f * block, 2.0f * block));
@@ -343,6 +368,11 @@ int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* 
 
 void retro_ui_status_line(ImFont* pixel_font, int32_t scale, const char* text)
 {
+    retro_ui_status_line_from(pixel_font, scale, text, 4.0f);
+}
+
+void retro_ui_status_line_from(ImFont* pixel_font, int32_t scale, const char* text, float left)
+{
     float block = static_cast<float>(scale);
     const ImGuiIO& io = ImGui::GetIO();
 
@@ -354,14 +384,78 @@ void retro_ui_status_line(ImFont* pixel_font, int32_t scale, const char* text)
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
                              ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
     ImGui::Begin("##retro_status", nullptr, flags);
-    ImGui::PushFont(pixel_font, PIXEL_FONT_IMGUI_UNIT * block);
+    push_pixel_font(pixel_font, block);
     use_nearest_sampler();
-    // 4 retro pixels from the left and from the bottom (line = 7, glyph starts 1 down).
-    ImVec2 position = ImVec2(4.0f * block, io.DisplaySize.y - (4.0f + 6.0f) * block);
+    // `left` retro pixels from the left, 4 from the bottom (line = 7, glyph starts 1 down).
+    ImVec2 position = ImVec2(left * block, io.DisplaySize.y - (4.0f + 6.0f) * block);
     draw_label(ImGui::GetWindowDrawList(), position, text, false);
     use_linear_sampler();
     ImGui::PopFont();
     ImGui::End();
+}
+
+const RetroUiPalette* retro_ui_palette()
+{
+    return &g_palette;
+}
+
+// ---------------------------------------------------------------------------
+// Layers over the game
+// ---------------------------------------------------------------------------
+
+void retro_ui_begin_layer(const char* id, ImFont* pixel_font, int32_t scale, bool front)
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground |
+                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
+                             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+    ImGui::Begin(id, nullptr, flags);
+    // Its place among the windows, every frame (it never takes focus, so
+    // nothing else would move it).
+    if (front)
+    {
+        ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+    }
+    else
+    {
+        ImGui::BringWindowToDisplayBack(ImGui::GetCurrentWindow());
+    }
+    push_pixel_font(pixel_font, static_cast<float>(scale));
+    use_nearest_sampler();
+}
+
+void retro_ui_end_layer()
+{
+    use_linear_sampler();
+    ImGui::PopFont();
+    ImGui::End();
+}
+
+void retro_ui_layer_rect(float x, float y, float width, float height, uint32_t argb)
+{
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, y), ImVec2(x + width, y + height), to_imgui_u32(argb));
+}
+
+void retro_ui_layer_text(float x, float y, const char* text, uint32_t argb)
+{
+    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(x, y), to_imgui_u32(argb), text);
+}
+
+float retro_ui_layer_text_width(const char* text)
+{
+    return ImGui::CalcTextSize(text).x;
+}
+
+void retro_ui_layer_clip(float x, float y, float width, float height)
+{
+    ImGui::GetWindowDrawList()->PushClipRect(ImVec2(x, y), ImVec2(x + width, y + height), true);
+}
+
+void retro_ui_layer_unclip()
+{
+    ImGui::GetWindowDrawList()->PopClipRect();
 }
 
 // ---------------------------------------------------------------------------
@@ -432,7 +526,7 @@ constexpr int THEME_VAR_COUNT = 12;   // the PushStyleVar calls in retro_ui_push
 void retro_ui_push_theme(ImFont* pixel_font, int32_t scale)
 {
     float block = static_cast<float>(scale);
-    ImGui::PushFont(pixel_font, PIXEL_FONT_IMGUI_UNIT * block);
+    push_pixel_font(pixel_font, block);
     push_theme_colors();
     // Same metrics as the menu bar, in retro pixels.
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * block, 4.0f * block));
@@ -584,6 +678,120 @@ bool retro_ui_button_sized(const char* label, float width, float height)
     return pressed;
 }
 
+// The arrow pointing right; the other directions are it turned.
+static const char* const ARROW_RIGHT[9] = {
+    "....#....",
+    "....##...",
+    "....###..",
+    "########.",
+    "#########",
+    "########.",
+    "....###..",
+    "....##...",
+    "....#....",
+};
+
+static bool arrow_pixel(RetroUiArrow direction, int32_t x, int32_t y)
+{
+    switch (direction)
+    {
+    case RetroUiArrow::right:
+        return ARROW_RIGHT[y][x] == '#';
+    case RetroUiArrow::left:
+        return ARROW_RIGHT[y][8 - x] == '#';
+    case RetroUiArrow::down:
+        return ARROW_RIGHT[x][y] == '#';
+    case RetroUiArrow::up:
+        return ARROW_RIGHT[x][8 - y] == '#';
+    }
+    return false;
+}
+
+bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, float height)
+{
+    float block = retro_pixel();
+    bool pressed = ImGui::Button(id, ImVec2(width, height));
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    bool held = ImGui::IsItemActive() && ImGui::IsItemHovered();
+    draw_button_face(min, max, held);
+    if (!held)
+    {
+        draw_raised(min, max, block);
+    }
+    bool disabled = (ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0;
+    ImU32 color = to_imgui_u32(disabled ? g_palette.text_disabled : g_palette.button_text);
+    float x0 = static_cast<float>(static_cast<int32_t>(min.x + (max.x - min.x - 9.0f * block) * 0.5f));
+    float y0 = static_cast<float>(static_cast<int32_t>(min.y + (max.y - min.y - 9.0f * block) * 0.5f)) +
+               (held ? block : 0.0f);
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    for (int32_t y = 0; y < 9; y++)
+    {
+        for (int32_t x = 0; x < 9; x++)
+        {
+            if (arrow_pixel(direction, x, y))
+            {
+                ImVec2 a(x0 + static_cast<float>(x) * block, y0 + static_cast<float>(y) * block);
+                draw_list->AddRectFilled(a, ImVec2(a.x + block, a.y + block), color);
+            }
+        }
+    }
+    return pressed;
+}
+
+bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current)
+{
+    float block = retro_pixel();
+    bool changed = false;
+    ImGui::PushID(id);
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (i > 0)
+        {
+            ImGui::SameLine(0.0f, block);   // one retro pixel apart: one control
+        }
+        ImGui::PushID(static_cast<int>(i));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        bool clicked = ImGui::Button(labels[i]);
+        ImGui::PopStyleColor();
+        ImGui::PopID();
+        if (clicked && i != *current)
+        {
+            *current = i;
+            changed = true;
+        }
+        ImVec2 min = ImGui::GetItemRectMin();
+        ImVec2 max = ImGui::GetItemRectMax();
+        bool chosen = i == *current;
+        bool held = ImGui::IsItemActive() && ImGui::IsItemHovered();
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        if (chosen)
+        {
+            // Pressed in: the highlight color, sunken (dark top and left).
+            draw_list->AddRectFilled(min, max, to_imgui_u32(g_palette.highlight));
+            draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), to_imgui_u32(g_palette.button_dark));
+            draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), to_imgui_u32(g_palette.button_dark));
+        }
+        else
+        {
+            draw_button_face(min, max, held);
+            if (!held)
+            {
+                draw_raised(min, max, block);
+            }
+        }
+        const char* end = ImGui::FindRenderedTextEnd(labels[i]);
+        ImVec2 text = ImGui::CalcTextSize(labels[i], end);
+        bool down = chosen || held;
+        float x = static_cast<float>(static_cast<int32_t>(min.x + (max.x - min.x - text.x) * 0.5f)) + (chosen ? block : 0.0f);
+        float y = static_cast<float>(static_cast<int32_t>(min.y + (max.y - min.y - text.y) * 0.5f)) + (down ? block : 0.0f);
+        draw_list->AddText(ImVec2(x, y), to_imgui_u32(chosen ? g_palette.text_highlight : g_palette.button_text), labels[i],
+                           end);
+    }
+    ImGui::PopID();
+    return changed;
+}
+
 bool retro_ui_begin_list(const char* id, float width, float height)
 {
     // ImGui's border off; the padding a bordered child would have kept.
@@ -622,6 +830,23 @@ void retro_ui_raised_item_edge()
 bool retro_ui_button(const char* label)
 {
     return retro_ui_button_sized(label, 0.0f, 0.0f);
+}
+
+int retro_ui_seconds_left(uint64_t now_ms, uint64_t started_ms, uint64_t total_ms)
+{
+    uint64_t elapsed = now_ms - started_ms;
+    return static_cast<int>((total_ms - (elapsed < total_ms ? elapsed : total_ms) + 999) / 1000);
+}
+
+bool retro_ui_countdown_button(const char* format, int seconds, const char* id)
+{
+    char label[128] = {};
+    int written = std::snprintf(label, sizeof(label), format, seconds);
+    if (written > 0 && static_cast<size_t>(written) < sizeof(label))
+    {
+        std::snprintf(label + written, sizeof(label) - static_cast<size_t>(written), "###%s", id);
+    }
+    return retro_ui_button(label);
 }
 
 bool retro_ui_checkbox(const char* label, bool* value)
