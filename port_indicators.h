@@ -2,7 +2,8 @@
 
 // How a frontend shows a port and a connection (retroui: ports_view draws
 // them; piccoletto's title bar too), so piccolo and piccoletto look the same.
-// Sizes in retro pixels, colors ARGB.
+// Sizes in retro pixels, colors ARGB. The drawing functions at the end draw
+// both in one place, into the current ImGui window (a layer or a touch screen).
 //
 // Port LEDs: one small square per port, side by side, like a gamepad's
 // player lights; the port's own is lit.
@@ -41,3 +42,16 @@ constexpr float ping_bar_height(uint32_t bar)
 {
     return 3.0f + 2.0f * static_cast<float>(bar);
 }
+
+// Drawing them into the current ImGui window's draw list, in window pixels;
+// `block` = window pixels per retro pixel. Off LEDs and unlit bars are
+// `off_argb` (the palette's panel_dark).
+//
+// LEDs: `count` squares from (x, top), the one at `lit_index` lit (-1: none).
+// Returns their width.
+float port_indicators_draw_leds(float x, float top, float block, uint32_t count, int32_t lit_index, uint32_t off_argb);
+// The ping bars' width.
+float port_indicators_ping_width(float block);
+// The ping bars from `x`, bottoms level at `bottom`: as many lit as the round
+// trip deserves, in its color; all off while not `known`.
+void port_indicators_draw_ping(float x, float bottom, float block, bool known, uint32_t ping_ms, uint32_t off_argb);

@@ -205,35 +205,15 @@ void ports_view_pick_next(PortsView* view, int32_t direction)
 // One LED per port, the port's own lit when someone is on it. Returns the width.
 static float draw_leds(float x, float y, float block, uint32_t count, uint32_t port, bool lit)
 {
-    const RetroUiPalette* palette = retro_ui_palette();
-    for (uint32_t i = 0; i < count; i++)
-    {
-        uint32_t color = lit && i == port ? PORT_LED_ON : palette->panel_dark;
-        retro_ui_layer_rect(x + static_cast<float>(i) * (PORT_LED_SIZE + PORT_LED_GAP) * block, y + block,
-                            PORT_LED_SIZE * block, PORT_LED_SIZE * block, color);
-    }
-    return count == 0 ? 0.0f : (static_cast<float>(count) * (PORT_LED_SIZE + PORT_LED_GAP) - PORT_LED_GAP) * block;
-}
-
-static float ping_bars_width(float block)
-{
-    return (static_cast<float>(PING_BARS) * PING_BAR_WIDTH + static_cast<float>(PING_BARS - 1) * PING_BAR_GAP) * block;
+    int32_t lit_index = lit ? static_cast<int32_t>(port) : -1;
+    return port_indicators_draw_leds(x, y + block, block, count, lit_index, retro_ui_palette()->panel_dark);
 }
 
 // Three rising bars, bottoms level with the letters', ending at `right`.
 static void draw_ping_bars(float right, float y, float block, bool known, uint32_t ping_ms)
 {
-    const RetroUiPalette* palette = retro_ui_palette();
-    uint32_t lit = known ? ping_bars_lit(ping_ms) : 0;
-    uint32_t color = known ? ping_color(ping_ms) : palette->panel_dark;
-    float x = right - ping_bars_width(block);
-    float bottom = y + 6.0f * block;
-    for (uint32_t i = 0; i < PING_BARS; i++)
-    {
-        float height = ping_bar_height(i) * block;
-        retro_ui_layer_rect(x + static_cast<float>(i) * (PING_BAR_WIDTH + PING_BAR_GAP) * block, bottom - height,
-                            PING_BAR_WIDTH * block, height, i < lit ? color : palette->panel_dark);
-    }
+    port_indicators_draw_ping(right - port_indicators_ping_width(block), y + 6.0f * block, block, known, ping_ms,
+                              retro_ui_palette()->panel_dark);
 }
 
 // The bars and "12 MS" ending at `right`: the first linked chip's.
@@ -286,7 +266,7 @@ static void draw_chip(const PortsView* view, const PortsViewChip* chip, const Po
     else if (chip->has_ping)
     {
         draw_ping_bars(right, text_y, block, chip->ping_known, chip->ping_ms);
-        right -= ping_bars_width(block) + 3.0f * block;
+        right -= port_indicators_ping_width(block) + 3.0f * block;
     }
     float left = x + CHIP_PADDING * block;
     retro_ui_layer_clip(left, y, right - left, height);
