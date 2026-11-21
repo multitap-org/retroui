@@ -1,0 +1,439 @@
+#include "pad_layout.h"
+
+#include <cfloat>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+
+#include "retropad.h"
+#include "settings_file.h"
+#include "touch_fingers.h"
+
+// The yellow of a lit part: the same in every theme, as in piccolo's pad picture.
+constexpr uint32_t PART_LIT      = 0xFFFFDC50u;
+constexpr uint32_t PART_LIT_TEXT = 0xFF000000u;
+
+// The mockups put 2 dp in a retro pixel.
+constexpr float DP_PER_RETRO_PIXEL = 2.0f;
+
+static const char* const GROUP_LABELS[PAD_GROUP_COUNT] = {"L SHOULDERS", "R SHOULDERS", "D-PAD", "BUTTONS",
+                                                          "SELECT / START", "LEFT STICK", "RIGHT STICK"};
+static const char* const GROUP_KEYS[PAD_GROUP_COUNT] = {"left_shoulders", "right_shoulders", "dpad", "face",
+                                                        "center", "left_stick", "right_stick"};
+
+const char* pad_group_label(PadGroup group)
+{
+    return GROUP_LABELS[static_cast<int32_t>(group)];
+}
+
+const char* pad_group_key(PadGroup group)
+{
+    return GROUP_KEYS[static_cast<int32_t>(group)];
+}
+
+void pad_layout_reset(PadLayout* layout)
+{
+    for (int32_t g = 0; g < PAD_GROUP_COUNT; g++)
+    {
+        layout->groups[g] = PadGroupEdit{};
+    }
+    layout->alpha = layout->default_alpha;
+    layout->alpha_set = false;
+}
+
+// A number from the layouts file, kept in [minimum, maximum]; `fallback`
+// when it's missing or not a number.
+static float read_float(const SettingsFile* file, const char* section, const char* key, float fallback, float minimum,
+                        float maximum)
+{
+    const char* text = settings_file_get(file, section, key);
+    if (text == nullptr)
+    {
+        return fallback;
+    }
+    char* end = nullptr;
+    float value = std::strtof(text, &end);
+    if (end == text || !std::isfinite(value))
+    {
+        return fallback;
+    }
+    return value < minimum ? minimum : (value > maximum ? maximum : value);
+}
+
+void pad_layout_load(PadLayout* layout, const SettingsFile* file)
+{
+    pad_layout_reset(layout);
+    char key[64];
+    for (int32_t g = 0; g < PAD_GROUP_COUNT; g++)
+    {
+        PadGroupEdit* edit = &layout->groups[g];
+        std::snprintf(key, sizeof(key), "%s.x", GROUP_KEYS[g]);
+        edit->dx = read_float(file, layout->name, key, 0.0f, -layout->width, layout->width);
+        std::snprintf(key, sizeof(key), "%s.y", GROUP_KEYS[g]);
+        edit->dy = read_float(file, layout->name, key, 0.0f, -layout->height, layout->height);
+        std::snprintf(key, sizeof(key), "%s.size", GROUP_KEYS[g]);
+        edit->scale = read_float(file, layout->name, key, 1.0f, PAD_SCALE_MIN, PAD_SCALE_MAX);
+    }
+    // An empty alpha = not set here (the default, which SETTINGS may change).
+    const char* alpha = settings_file_get(file, layout->name, "alpha");
+    layout->alpha_set = alpha != nullptr && alpha[0] != '\0';
+    layout->alpha = read_float(file, layout->name, "alpha", layout->default_alpha, PAD_ALPHA_MIN, 1.0f);
+}
+
+void pad_layout_save(const PadLayout* layout, SettingsFile* file)
+{
+    char key[64];
+    char value[32];
+    for (int32_t g = 0; g < PAD_GROUP_COUNT; g++)
+    {
+        const PadGroupEdit* edit = &layout->groups[g];
+        std::snprintf(key, sizeof(key), "%s.x", GROUP_KEYS[g]);
+        std::snprintf(value, sizeof(value), "%.1f", static_cast<double>(edit->dx));
+        settings_file_set(file, layout->name, key, value);
+        std::snprintf(key, sizeof(key), "%s.y", GROUP_KEYS[g]);
+        std::snprintf(value, sizeof(value), "%.1f", static_cast<double>(edit->dy));
+        settings_file_set(file, layout->name, key, value);
+        std::snprintf(key, sizeof(key), "%s.size", GROUP_KEYS[g]);
+        std::snprintf(value, sizeof(value), "%.2f", static_cast<double>(edit->scale));
+        settings_file_set(file, layout->name, key, value);
+    }
+    std::snprintf(value, sizeof(value), "%.2f", static_cast<double>(layout->alpha));
+    settings_file_set(file, layout->name, "alpha", layout->alpha_set ? value : "");
+}
+
+bool pad_layout_has_group(const PadLayout* layout, PadGroup group)
+{
+    for (int32_t i = 0; i < layout->count; i++)
+    {
+        if (layout->parts[i].group == group)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A group's default bounding box (before the user's change), in dp.
+static void default_group_box(const PadLayout* layout, PadGroup group, float* x0, float* y0, float* x1, float* y1)
+{
+    *x0 = FLT_MAX;
+    *y0 = FLT_MAX;
+    *x1 = -FLT_MAX;
+    *y1 = -FLT_MAX;
+    for (int32_t i = 0; i < layout->count; i++)
+    {
+        const PadPart* part = &layout->parts[i];
+        if (part->group != group)
+        {
+            continue;
+        }
+        *x0 = part->x < *x0 ? part->x : *x0;
+        *y0 = part->y < *y0 ? part->y : *y0;
+        *x1 = part->x + part->width > *x1 ? part->x + part->width : *x1;
+        *y1 = part->y + part->height > *y1 ? part->y + part->height : *y1;
+    }
+}
+
+void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float* y, float* width, float* height)
+{
+    const PadPart* p = &layout->parts[part];
+    const PadGroupEdit* edit = &layout->groups[static_cast<int32_t>(p->group)];
+    float x0 = 0.0f;
+    float y0 = 0.0f;
+    float x1 = 0.0f;
+    float y1 = 0.0f;
+    default_group_box(layout, p->group, &x0, &y0, &x1, &y1);
+    // Resized around the group's middle, then moved.
+    float middle_x = (x0 + x1) * 0.5f;
+    float middle_y = (y0 + y1) * 0.5f;
+    *x = middle_x + edit->dx + (p->x - middle_x) * edit->scale;
+    *y = middle_y + edit->dy + (p->y - middle_y) * edit->scale;
+    *width = p->width * edit->scale;
+    *height = p->height * edit->scale;
+}
+
+void pad_layout_group_rect(const PadLayout* layout, PadGroup group, float* x, float* y, float* width, float* height)
+{
+    float x0 = FLT_MAX;
+    float y0 = FLT_MAX;
+    float x1 = -FLT_MAX;
+    float y1 = -FLT_MAX;
+    for (int32_t i = 0; i < layout->count; i++)
+    {
+        if (layout->parts[i].group != group)
+        {
+            continue;
+        }
+        float px = 0.0f;
+        float py = 0.0f;
+        float pw = 0.0f;
+        float ph = 0.0f;
+        pad_layout_part_rect(layout, i, &px, &py, &pw, &ph);
+        x0 = px < x0 ? px : x0;
+        y0 = py < y0 ? py : y0;
+        x1 = px + pw > x1 ? px + pw : x1;
+        y1 = py + ph > y1 ? py + ph : y1;
+    }
+    *x = x0;
+    *y = y0;
+    *width = x1 - x0;
+    *height = y1 - y0;
+}
+
+PadFrame pad_frame_fit_into(float width, float height, float x, float y, float room_width, float room_height)
+{
+    float scale_x = room_width / (width / DP_PER_RETRO_PIXEL);
+    float scale_y = room_height / (height / DP_PER_RETRO_PIXEL);
+    float scale = scale_x < scale_y ? scale_x : scale_y;
+    PadFrame frame = {};
+    frame.dp_scale = scale / DP_PER_RETRO_PIXEL;
+    frame.x = std::floor(x + (room_width - width * frame.dp_scale) * 0.5f);
+    frame.y = std::floor(y + (room_height - height * frame.dp_scale) * 0.5f);
+    return frame;
+}
+
+PadFrame pad_frame_fit(const TouchUi* ui, float width, float height)
+{
+    return pad_frame_fit_into(width, height, 0.0f, 0.0f, touch_ui_width(ui), touch_ui_height(ui));
+}
+
+PadFrame pad_frame_fit_bottom(const TouchUi* ui, float width, float height)
+{
+    PadFrame frame = pad_frame_fit(ui, width, height);
+    frame.y = std::floor(touch_ui_height(ui) - height * frame.dp_scale);
+    return frame;
+}
+
+float pad_x(const PadFrame* frame, float dp)
+{
+    return frame->x + dp * frame->dp_scale;
+}
+
+float pad_y(const PadFrame* frame, float dp)
+{
+    return frame->y + dp * frame->dp_scale;
+}
+
+float pad_size(const PadFrame* frame, float dp)
+{
+    return dp * frame->dp_scale;
+}
+
+uint32_t pad_fade(uint32_t argb, float alpha)
+{
+    float a = static_cast<float>(argb >> 24) * alpha;
+    uint32_t faded = static_cast<uint32_t>(a < 0.0f ? 0.0f : (a > 255.0f ? 255.0f : a));
+    return (argb & 0x00FFFFFFu) | (faded << 24);
+}
+
+void pad_block(const TouchUi* ui, const PadFrame* frame, float x, float y, float width, float height, uint32_t argb)
+{
+    touch_ui_rect(ui, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height), argb);
+}
+
+bool pad_button(const TouchUi* ui, const PadFrame* frame, const char* id, float x, float y, float width, float height,
+                const char* label, TouchButton style, TouchText size)
+{
+    return touch_ui_button(ui, id, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height), label,
+                           style, size);
+}
+
+void pad_text(const TouchUi* ui, const PadFrame* frame, float x, float y, const char* text, uint32_t argb, TouchText size,
+              bool centered)
+{
+    float left = pad_x(frame, x);
+    if (centered)
+    {
+        left -= touch_ui_text_width(ui, text, size) * 0.5f;
+    }
+    touch_ui_text(ui, std::floor(left), pad_y(frame, y), text, argb, size);
+}
+
+void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
+                   bool overlay, float stick_x, float stick_y)
+{
+    const RetroUiPalette* palette = &ui->palette;
+    uint32_t face = overlay ? palette->button_face : palette->field_face;
+    uint32_t text = overlay ? palette->text_highlight : palette->field_text;
+    uint32_t nub = overlay ? palette->field_face : palette->button_face;
+    touch_ui_rect(ui, x, y, width, height, pad_fade(held ? PART_LIT : face, alpha));
+    if (part->kind == PadPartKind::stick)
+    {
+        // The nub: the body's color, 40% of the block, in the middle at
+        // rest, pushed toward the block's edges as the stick is.
+        float nub_width = std::floor(width * 0.4f);
+        float nub_height = std::floor(height * 0.4f);
+        float travel_x = (width - nub_width) * 0.5f;
+        float travel_y = (height - nub_height) * 0.5f;
+        touch_ui_rect(ui, std::floor(x + travel_x + stick_x * travel_x), std::floor(y + travel_y + stick_y * travel_y), nub_width,
+                      nub_height, pad_fade(nub, alpha));
+    }
+    if (part->label[0] != '\0')
+    {
+        float text_width = touch_ui_text_width(ui, part->label, part->size);
+        touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, part->size),
+                      part->label, pad_fade(held ? PART_LIT_TEXT : text, alpha), part->size);
+    }
+}
+
+// A held stick's position, -1..1 on each axis: where its finger is from the
+// block's middle, full tilt at the edge the nub can reach (40% of the block,
+// see pad_part_draw) and kept there when the finger goes past it.
+static float stick_axis(float finger, float start, float size)
+{
+    float travel = size * 0.3f;   // (size - the nub's 40%) / 2
+    float value = (finger - (start + size * 0.5f)) / travel;
+    return value < -1.0f ? -1.0f : (value > 1.0f ? 1.0f : value);
+}
+
+static bool inside(float x, float y, float left, float top, float width, float height)
+{
+    return x >= left && x < left + width && y >= top && y < top + height;
+}
+
+// Whether a part is held, from the fingers (retro pixels: finger / scale). A
+// stick: the finger it owns, or a free finger that just went down on it
+// (which it takes). A button: any free finger on it.
+static const TouchFinger* holding_finger(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height)
+{
+    TouchFingers* fingers = ui->fingers;
+    if (fingers == nullptr)
+    {
+        return nullptr;
+    }
+    float scale = static_cast<float>(ui->scale);
+    for (int32_t i = 0; i < fingers->count; i++)
+    {
+        TouchFinger* finger = &fingers->fingers[i];
+        if (part->kind == PadPartKind::stick && finger->owner == part->id)
+        {
+            return finger;
+        }
+    }
+    for (int32_t i = 0; i < fingers->count; i++)
+    {
+        TouchFinger* finger = &fingers->fingers[i];
+        if (finger->owner != nullptr || !inside(finger->x / scale, finger->y / scale, x, y, width, height))
+        {
+            continue;
+        }
+        if (part->kind == PadPartKind::stick)
+        {
+            if (finger->began)
+            {
+                finger->owner = part->id;
+                return finger;
+            }
+            continue;
+        }
+        return finger;
+    }
+    return nullptr;
+}
+
+// A stick held on a RetroPad: pushed past a small dead zone, or clicked.
+constexpr float LIT_STICK_DEADZONE = 0.25f;
+
+// Whether a part is held on `lit` (a real gamepad as a RetroPad), and a
+// stick's position there (-1..1).
+static bool lit_part(const TouchUi* ui, const PadPart* part, float* stick_x, float* stick_y)
+{
+    *stick_x = 0.0f;
+    *stick_y = 0.0f;
+    if (part->kind == PadPartKind::action)
+    {
+        return ui->action_lit;
+    }
+    const RetroPad* lit = ui->lit;
+    if (lit == nullptr)
+    {
+        return false;
+    }
+    if (part->kind == PadPartKind::stick)
+    {
+        int32_t which = part->group == PadGroup::right_stick ? 1 : 0;
+        RetroPadButton click = which == 1 ? RetroPadButton::r3 : RetroPadButton::l3;
+        *stick_x = static_cast<float>(lit->analog[which][0]) / 32767.0f;
+        *stick_y = static_cast<float>(lit->analog[which][1]) / 32767.0f;
+        bool clicked = (lit->buttons & (1u << static_cast<uint32_t>(click))) != 0;
+        return clicked || std::fabs(*stick_x) > LIT_STICK_DEADZONE || std::fabs(*stick_y) > LIT_STICK_DEADZONE;
+    }
+    RetroPadButton button = RetroPadButton::b;
+    return retropad_button_for_part(part->id, &button) && (lit->buttons & (1u << static_cast<uint32_t>(button))) != 0;
+}
+
+void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout)
+{
+    uint32_t held_now = 0;
+    bool action_was_held = layout->action_held;
+    layout->action_held = false;
+    layout->action_pressed = false;
+    for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
+    {
+        const PadPart* part = &layout->parts[i];
+        PadPart labelled;   // the action button with the frontend's label
+        if (part->kind == PadPartKind::action)
+        {
+            if (layout->action_label == nullptr)
+            {
+                continue;
+            }
+            labelled = *part;
+            labelled.label = layout->action_label;
+            part = &labelled;
+        }
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        pad_layout_part_rect(layout, i, &x, &y, &width, &height);
+        float screen_x = pad_x(frame, x);
+        float screen_y = pad_y(frame, y);
+        float screen_width = pad_size(frame, width);
+        float screen_height = pad_size(frame, height);
+        const TouchFinger* finger = holding_finger(ui, part, screen_x, screen_y, screen_width, screen_height);
+        float stick_x = 0.0f;
+        float stick_y = 0.0f;
+        bool on_gamepad = lit_part(ui, part, &stick_x, &stick_y);
+        bool held = finger != nullptr || on_gamepad;
+        if (finger != nullptr && part->kind == PadPartKind::action)
+        {
+            layout->action_held = true;
+            layout->action_pressed = !action_was_held;
+        }
+        if (finger != nullptr && ui->pad != nullptr)
+        {
+            // What the pad gives: the parts fingers hold (a real gamepad's
+            // presses are added from the gamepad itself).
+            RetroPadButton button = RetroPadButton::b;
+            if (retropad_button_for_part(part->id, &button))
+            {
+                retropad_press(ui->pad, button);
+            }
+        }
+        if (finger != nullptr)
+        {
+            uint32_t bit = 1u << static_cast<uint32_t>(i);
+            held_now |= bit;
+            if ((layout->held & bit) == 0 && ui->fingers != nullptr)
+            {
+                ui->fingers->presses++;
+            }
+            if (part->kind == PadPartKind::stick)
+            {
+                float scale = static_cast<float>(ui->scale);
+                stick_x = stick_axis(finger->x / scale, screen_x, screen_width);
+                stick_y = stick_axis(finger->y / scale, screen_y, screen_height);
+                if (ui->pad != nullptr)
+                {
+                    int32_t which = part->group == PadGroup::right_stick ? 1 : 0;
+                    ui->pad->analog[which][0] = retropad_axis(stick_x);
+                    ui->pad->analog[which][1] = retropad_axis(stick_y);
+                }
+            }
+        }
+        pad_part_draw(ui, part, screen_x, screen_y, screen_width, screen_height, layout->alpha, held, layout->overlay, stick_x,
+                      stick_y);
+    }
+    layout->held = held_now;
+}
