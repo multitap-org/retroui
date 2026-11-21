@@ -9,10 +9,11 @@
 //          changed rise whole (who is on them); about 3 s later they go down.
 //          With `peek` they stay at their first line (piccolo's menu).
 //          Animated, behind every window; more than 4 overlap.
-//   BOARD  full screen over the game: a column per port (OUT first, when
-//          shown), scrolled sideways when they don't fit. A click / tap picks
-//          a chip, a click on another column asks to move it there, DONE
-//          closes. The frontend does the moving (its router, or the host).
+//   BOARD  full screen over the game (the frontend dims the game behind it):
+//          a column per port (OUT first, when shown), scrolled sideways when
+//          they don't fit. A click / tap picks a chip, a click on another
+//          column asks to move it there, DONE closes. The frontend does the
+//          moving (its router, or the host).
 //
 // Only what is drawn lives here: the frontend fills the columns (rebuilding
 // them when who is where changes, never per frame) and says what changed.

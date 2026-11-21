@@ -35,8 +35,8 @@ constexpr float COLUMN_MIN   = 90.0f;   // narrower than this, the columns scrol
 constexpr float DONE_WIDTH   = 40.0f;
 constexpr float ARROW_WIDTH  = 12.0f;
 
-// Over the game: a light dim, and cards the game shows through (piccoletto's).
-constexpr uint32_t DIM        = 0x50000000u;
+// Over the game: cards the game shows through (piccoletto's). The frontend
+// dims the game behind the board itself (piccolo's BACKDROP), not this.
 constexpr uint32_t CARD_ALPHA = 0xB0000000u;
 constexpr uint32_t LIT_ALPHA  = 0xD8000000u;   // the tab of a port that changed
 
@@ -469,7 +469,6 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float screen_width = io.DisplaySize.x;
     float screen_height = io.DisplaySize.y;
     retro_ui_begin_layer("##ports_board", pixel_font, scale, true);
-    retro_ui_layer_rect(0.0f, 0.0f, screen_width, screen_height, DIM);
 
     // The title bar with DONE, and the hint under it (piccoletto's).
     float margin = BOARD_MARGIN * block;
