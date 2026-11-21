@@ -68,7 +68,8 @@ float dvr_view_height(const DvrView* view, int32_t scale)
     return rows * static_cast<float>(scale > 0 ? scale : 1);
 }
 
-static void draw_header(const DvrViewText* text, float top, float width, float block)
+static void draw_header(const DvrView* view, const DvrViewText* text, float top, float width, float block,
+                        DvrViewInput* input)
 {
     const RetroUiPalette* palette = retro_ui_palette();
     float y = top + GAP * block;
@@ -78,7 +79,30 @@ static void draw_header(const DvrViewText* text, float top, float width, float b
     x += draw_chip(x, y + block, CHIP * block, CHIP_PAD, text->title, palette->highlight, palette->text_highlight, block);
     float text_y = y + 2.0f * block;
     retro_ui_layer_text(x + 6.0f * block, text_y, text->mode, palette->text);
-    float right = width - (MARGIN + 4.0f) * block;
+
+    // The exit button at the right; focused (UP): lit, with a frame.
+    float right = width - (MARGIN + 2.0f) * block;
+    if (text->exit[0] != '\0')
+    {
+        float exit_w = std::floor(retro_ui_layer_text_width(text->exit)) + 2.0f * CHIP_PAD * block;
+        float exit_x = right - exit_w;
+        if (view->exit_focused)
+        {
+            retro_ui_layer_rect(exit_x - block, y, exit_w + 2.0f * block, HEADER * block, palette->text_highlight);
+        }
+        draw_chip(exit_x, y + block, CHIP * block, CHIP_PAD, text->exit,
+                  view->exit_focused ? palette->highlight : palette->button_face,
+                  view->exit_focused ? palette->text_highlight : palette->button_text, block);
+        if (clicked_in(exit_x, y + block, exit_w, CHIP * block))
+        {
+            input->action = DvrViewAction::back_to_now;
+        }
+        right = exit_x - 8.0f * block;
+    }
+    else
+    {
+        right -= 2.0f * block;
+    }
     float readout = std::floor(retro_ui_layer_text_width(text->readout));
     retro_ui_layer_text(right - readout, text_y, text->readout, palette->section);
     if (text->kept[0] != '\0')
@@ -258,7 +282,7 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
     float centres[DVR_VIEW_MAX_THUMBS] = {};
 
     retro_ui_begin_layer("##dvr_view", pixel_font, scale, true);
-    draw_header(text, top, width, block);
+    draw_header(view, text, top, width, block, input);
     float label_y = 0.0f;
     draw_thumbs(view, top + (GAP + HEADER + GAP) * block, width, block, centres, &label_y, input);
     float below = label_y + LABEL * block;

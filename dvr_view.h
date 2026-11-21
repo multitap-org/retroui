@@ -6,7 +6,9 @@
 // moves through its history, makes the thumbnails and fills this in.
 //
 //   HEADER   the title chip (◀◀ DVR, ▶ WATCHING), the mode, how much is
-//            kept, where the cursor is.
+//            kept, where the cursor is, and the exit button at the right
+//            (BACK TO NOW): UP focuses it, the only place the DVR navigates
+//            to; everything else is a button acting at once.
 //   STRIP    thumbnails along the bottom, the selected one bigger in the
 //            middle; the ones after the cursor (kept until PLAY FROM HERE)
 //            darker. A track under them with the cursor between two.
@@ -61,6 +63,7 @@ struct DvrViewText
     const char* mode    = "";   // "SCRUB" / "SNAPSHOTS EVERY 10 S"
     const char* kept    = "";   // "4:12 KEPT" ("" = not shown)
     const char* readout = "";   // where the cursor is: "-0:27.8"
+    const char* exit    = "";   // the exit button: "BACK TO NOW"
 };
 
 struct DvrView
@@ -74,6 +77,7 @@ struct DvrView
     DvrViewHint  hints[DVR_VIEW_MAX_HINTS];
     uint32_t     hint_count = 0;
     bool         touch    = false;  // big buttons, no time under every thumbnail
+    bool         exit_focused = false;   // UP went to the exit button (ACCEPT presses it)
 };
 
 // What the mouse / a finger did this frame.
