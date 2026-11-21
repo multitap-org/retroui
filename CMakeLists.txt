@@ -24,6 +24,7 @@ add_library(retroui STATIC
     ports_view.cpp
     port_indicators.cpp
     dvr_view.cpp
+    hud_view.cpp
     touch_ui.cpp
     touch_fingers.cpp
     retropad.cpp
@@ -50,4 +51,10 @@ if(MULTITAP_BUILD_TESTS)
     target_link_libraries(retroui_pad_placement_test PRIVATE retroui)
     multitap_set_project_flags(retroui_pad_placement_test)
     add_test(NAME retroui_pad_placement COMMAND retroui_pad_placement_test)
+
+    # The HUD's stacks: icons top right, cards bottom right, nothing overlapping.
+    add_executable(retroui_hud_view_test tests/hud_view_test.cpp)
+    target_link_libraries(retroui_hud_view_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_hud_view_test)
+    add_test(NAME retroui_hud_view COMMAND retroui_hud_view_test)
 endif()
