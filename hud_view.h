@@ -58,9 +58,9 @@ enum class HudIcon
 struct HudCard
 {
     char     chip[16] = {};      // the title chip ("PORT 1"); empty: no chip
-    char     title[32] = {};     // after it ("SN30 PRO")
+    char     title[48] = {};     // after it ("SN30 PRO")
     char     corner[8] = {};     // right of the title line ("5")
-    char     before[24] = {};    // the second line; all three empty: one line only
+    char     before[48] = {};    // the second line; all three empty: one line only
     char     key[16] = {};
     char     after[24] = {};
     float    key_fill = 0.0f;    // 0..1 of the key chip lit (a button being held)
@@ -107,6 +107,10 @@ void hud_view_clear(HudStack* stack);
 // What a HUD widget shows this frame. False when the stack is full (it isn't shown).
 bool hud_view_add_card(HudStack* stack, const HudCard* card);
 bool hud_view_add_icon(HudStack* stack, HudIcon icon, const char* label);
+
+// A plain message as a card's text: on the title line, and wrapped at a
+// space onto the second line when it's wider than the card.
+void hud_view_card_text(HudCard* card, const char* text);
 
 // A card's height in retro pixels (one or two lines).
 float hud_view_card_height(const HudCard* card);

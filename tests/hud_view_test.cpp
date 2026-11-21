@@ -68,6 +68,16 @@ int main()
     std::snprintf(short_card.title, sizeof(short_card.title), "%s", "REWIND: NOTHING RECORDED YET");
     check(hud_view_card_height(&short_card) < hud_view_card_height(&first), "one line: shorter");
 
+    // A long message wraps at a space onto the second line, each part fitting.
+    HudCard wrapped = {};
+    hud_view_card_text(&wrapped, "REWIND IS OFF (SETTINGS > GENERAL)");
+    check(std::strcmp(wrapped.title, "REWIND IS OFF") == 0, "wrap: the first words on the title line");
+    check(std::strcmp(wrapped.before, "(SETTINGS > GENERAL)") == 0, "wrap: the rest on the second line");
+    check(hud_view_card_height(&wrapped) == hud_view_card_height(&first), "wrap: a two-line card");
+    HudCard fits = {};
+    hud_view_card_text(&fits, "PAUSED");
+    check(fits.before[0] == '\0', "wrap: a short message stays on one line");
+
     // A small area: the oldest cards don't fit and aren't shown; the newest is.
     HudArea small = screen;
     small.top = 344.0f - 40.0f;

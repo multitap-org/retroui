@@ -73,6 +73,39 @@ bool hud_view_add_icon(HudStack* stack, HudIcon icon, const char* label)
     return true;
 }
 
+void hud_view_card_text(HudCard* card, const char* text)
+{
+    copy_text(card->title, sizeof(card->title), text);
+    card->before[0] = '\0';
+    float room = HUD_VIEW_CARD_WIDTH - PAD_LEFT - PAD_RIGHT;
+    if (text_width(card->title) <= room)
+    {
+        return;
+    }
+    // The last space whose first part fits; the rest goes on the second line.
+    size_t cut = 0;
+    char head[sizeof(card->title)] = {};
+    for (size_t i = 0; card->title[i] != '\0'; i++)
+    {
+        if (card->title[i] != ' ')
+        {
+            continue;
+        }
+        std::snprintf(head, sizeof(head), "%.*s", static_cast<int>(i), card->title);
+        if (text_width(head) > room)
+        {
+            break;
+        }
+        cut = i;
+    }
+    if (cut == 0)
+    {
+        return;   // one long word: clipped on the title line
+    }
+    copy_text(card->before, sizeof(card->before), card->title + cut + 1);
+    card->title[cut] = '\0';
+}
+
 float hud_view_card_height(const HudCard* card)
 {
     return has_second_line(card) ? TWO_LINE_HEIGHT : ONE_LINE_HEIGHT;
