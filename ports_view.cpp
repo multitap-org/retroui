@@ -170,8 +170,16 @@ void ports_view_pick_next(PortsView* view, int32_t direction)
             }
         }
     }
-    if (order.empty())
+    // DONE is a stop too, before the first chip (UP from the first one, DOWN
+    // from the last one, reach it).
+    if (view->done_focus || order.empty())
     {
+        view->done_focus = order.empty();
+        if (!order.empty())
+        {
+            view->picked = direction > 0 ? order.front() : order.back();
+            view->has_pick = true;
+        }
         return;
     }
     int32_t at = -1;
@@ -180,7 +188,12 @@ void ports_view_pick_next(PortsView* view, int32_t direction)
         at = view->has_pick && order[i] == view->picked ? static_cast<int32_t>(i) : at;
     }
     int32_t size = static_cast<int32_t>(order.size());
-    int32_t next = at < 0 ? 0 : ((at + direction) % size + size) % size;
+    int32_t next = at < 0 ? 0 : at + direction;
+    if (next < 0 || next >= size)
+    {
+        view->done_focus = true;
+        return;
+    }
     view->picked = order[static_cast<size_t>(next)];
     view->has_pick = true;
 }
@@ -463,6 +476,7 @@ void ports_view_open_board(PortsView* view)
     view->board_rise = 0.0f;
     view->board_last_ms = 0;
     view->scroll = -1.0f;
+    view->done_focus = false;
 }
 
 void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
@@ -516,6 +530,15 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float done_x = margin + inner_width - done_width;
     retro_ui_layer_rect(done_x, header_y, done_width, header_height - CHIP_LIP * block, palette->highlight);
     retro_ui_layer_rect(done_x, header_y + header_height - CHIP_LIP * block, done_width, CHIP_LIP * block, darker(palette->highlight));
+    if (view->done_focus)
+    {
+        // Reached with UP / DOWN: an outline in the text color (A takes it).
+        uint32_t edge = palette->text_highlight;
+        retro_ui_layer_rect(done_x - block, header_y - block, done_width + 2.0f * block, block, edge);
+        retro_ui_layer_rect(done_x - block, header_y + header_height, done_width + 2.0f * block, block, edge);
+        retro_ui_layer_rect(done_x - block, header_y, block, header_height, edge);
+        retro_ui_layer_rect(done_x + done_width, header_y, block, header_height, edge);
+    }
     retro_ui_layer_text(done_x + std::floor((done_width - retro_ui_layer_text_width(text->done)) * 0.5f),
                         header_y + text_offset - block, text->done, palette->text_highlight);
     input->done = clicked_in(done_x, header_y, done_width, header_height);
@@ -595,12 +618,13 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
         for (size_t i = 0; i < column->chips.size(); i++)
         {
             const PortsViewChip* chip = &column->chips[i];
-            draw_chip(view, chip, text, line_x, chip_y, chip_width, block, has_pick && chip->key == view->picked);
+            draw_chip(view, chip, text, line_x, chip_y, chip_width, block, has_pick && !view->done_focus && chip->key == view->picked);
             if (!chip->gone && clicked_in(line_x, chip_y, chip_width, view->chip_height * block))
             {
                 // A click picks it; another click on it puts it down.
                 bool same = has_pick && chip->key == view->picked;
                 view->has_pick = !same;
+                view->done_focus = false;
                 view->picked = chip->key;
                 chip_clicked = true;
             }

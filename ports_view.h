@@ -82,6 +82,7 @@ struct PortsView
     float    scroll = -1.0f;             // window pixels (-1: placed at once next draw)
     float    scroll_target = 0.0f;
     float    board_rise = 0.0f;           // how far the sheet has slid up (0..1; animated)
+    bool     done_focus = false;          // UP / DOWN reached DONE (a pad's A takes it; the pick isn't lit)
     uint64_t board_last_ms = 0;
 };
 
@@ -107,7 +108,8 @@ void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, co
 // The column a chip is in (-1 = OUT), or false.
 bool ports_view_find(const PortsView* view, uint32_t key, int32_t* column);
 
-// UP / DOWN on a pad: the next chip in the board's order (wrapping around).
+// UP / DOWN on a pad: the next chip in the board's order; DONE is a stop
+// before the first one (done_focus), so a pad can reach it.
 void ports_view_pick_next(PortsView* view, int32_t direction);
 
 // What a click / tap on the board asked for (drawn this frame).
