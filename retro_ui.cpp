@@ -448,6 +448,13 @@ float retro_ui_layer_text_width(const char* text)
     return ImGui::CalcTextSize(text).x;
 }
 
+void retro_ui_layer_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
+                          uint32_t argb)
+{
+    ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(x, y), ImVec2(x + width, y + height),
+                                         ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max), to_imgui_u32(argb));
+}
+
 void retro_ui_layer_clip(float x, float y, float width, float height)
 {
     ImGui::GetWindowDrawList()->PushClipRect(ImVec2(x, y), ImVec2(x + width, y + height), true);
