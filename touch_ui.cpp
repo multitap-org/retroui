@@ -2,6 +2,7 @@
 
 #include <cfloat>
 #include <cmath>
+#include <cstdio>
 
 #include "imgui.h"
 
@@ -251,4 +252,60 @@ void touch_ui_push_clip(const TouchUi* ui, float x, float y, float width, float 
 void touch_ui_pop_clip()
 {
     ImGui::PopClipRect();
+}
+
+int32_t touch_ui_choices(const TouchUi* ui, const char* id, const char* const* names, int32_t count, int32_t current,
+                         float x, float y, float width, float height)
+{
+    if (count <= 0)
+    {
+        return -1;
+    }
+    float each = (width - static_cast<float>(count - 1) * TOUCH_UI_GAP) / static_cast<float>(count);
+    int32_t picked = -1;
+    for (int32_t i = 0; i < count; i++)
+    {
+        char button_id[64];
+        std::snprintf(button_id, sizeof(button_id), "%s%d", id, static_cast<int>(i));
+        TouchButton style = i == current ? TouchButton::primary : TouchButton::normal;
+        if (touch_ui_button(ui, button_id, x + static_cast<float>(i) * (each + TOUCH_UI_GAP), y, each, height, names[i],
+                            style, TouchText::normal))
+        {
+            picked = i;
+        }
+    }
+    return picked;
+}
+
+int32_t touch_ui_stepper(const TouchUi* ui, const char* id, const char* value, float x, float y, float width,
+                         float height)
+{
+    const RetroUiPalette* palette = &ui->palette;
+    float value_x = x + height + TOUCH_UI_GAP;
+    float value_width = width - 2.0f * (height + TOUCH_UI_GAP);
+    int32_t step = 0;
+    char button_id[64];
+    std::snprintf(button_id, sizeof(button_id), "%s_minus", id);
+    if (touch_ui_button(ui, button_id, x, y, height, height, "-", TouchButton::normal, TouchText::big))
+    {
+        step = -1;
+    }
+    touch_ui_rect(ui, value_x, y, value_width, height, palette->field_face);
+    float text_width = touch_ui_text_width(ui, value, TouchText::normal);
+    touch_ui_text(ui, std::floor(value_x + (value_width - text_width) * 0.5f),
+                  touch_ui_centered_text_y(ui, y, height, TouchText::normal), value, palette->field_text, TouchText::normal);
+    std::snprintf(button_id, sizeof(button_id), "%s_plus", id);
+    if (touch_ui_button(ui, button_id, x + width - height, y, height, height, "+", TouchButton::normal, TouchText::big))
+    {
+        step = 1;
+    }
+    return step;
+}
+
+void touch_ui_outline(const TouchUi* ui, float x, float y, float width, float height, float thickness, uint32_t argb)
+{
+    touch_ui_rect(ui, x, y, width, thickness, argb);
+    touch_ui_rect(ui, x, y + height - thickness, width, thickness, argb);
+    touch_ui_rect(ui, x, y, thickness, height, argb);
+    touch_ui_rect(ui, x + width - thickness, y, thickness, height, argb);
 }

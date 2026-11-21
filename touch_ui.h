@@ -122,6 +122,24 @@ void touch_ui_lamp(const TouchUi* ui, float x, float y, uint32_t argb);
 // Where text of `size` goes to look centered in a box `height` tall at `y`.
 float touch_ui_centered_text_y(const TouchUi* ui, float y, float height, TouchText size);
 
+// The gap between the buttons of touch_ui_choices and touch_ui_stepper.
+constexpr float TOUCH_UI_GAP = 4.0f;
+
+// A row of buttons, one per choice, filling `width`; the current one is
+// primary (highlighted). Returns the tapped choice, or -1. The buttons' ids
+// are `id` plus their index.
+int32_t touch_ui_choices(const TouchUi* ui, const char* id, const char* const* names, int32_t count, int32_t current,
+                         float x, float y, float width, float height);
+
+// [-] value [+]: square buttons `height` wide at both ends, the value
+// centered in a field between them. Returns -1, +1 or 0.
+int32_t touch_ui_stepper(const TouchUi* ui, const char* id, const char* value, float x, float y, float width,
+                         float height);
+
+// A rectangle's edge, `thickness` retro pixels inside it (a picked row, a
+// group in EDIT LAYOUT).
+void touch_ui_outline(const TouchUi* ui, float x, float y, float width, float height, float thickness, uint32_t argb);
+
 // Only what's inside (x, y, width, height) is drawn and takes taps until the
 // pop (a scrolling list under a fixed header).
 void touch_ui_push_clip(const TouchUi* ui, float x, float y, float width, float height);

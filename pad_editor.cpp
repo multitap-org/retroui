@@ -45,40 +45,13 @@ static void group_box(const PadFrame* frame, const PadLayout* layout, PadGroup g
     *height = pad_size(frame, dh);
 }
 
-static void outline(const TouchUi* ui, float x, float y, float width, float height, uint32_t argb)
-{
-    touch_ui_rect(ui, x, y, width, 1.0f, argb);
-    touch_ui_rect(ui, x, y + height - 1.0f, width, 1.0f, argb);
-    touch_ui_rect(ui, x, y, 1.0f, height, argb);
-    touch_ui_rect(ui, x + width - 1.0f, y, 1.0f, height, argb);
-}
-
 // One "NAME   [-] value [+]" row. Returns -1, +1 or 0.
 static int32_t stepper(const TouchUi* ui, const char* id, const char* name, const char* value, float x, float y, float width)
 {
-    const RetroUiPalette* palette = &ui->palette;
-    touch_ui_text(ui, x, touch_ui_centered_text_y(ui, y, BAR_ROW, TouchText::normal), name, palette->text, TouchText::normal);
-    float value_width = 40.0f;
-    float plus_x = x + width - BAR_ROW;
-    float value_x = plus_x - BAR_GAP - value_width;
-    float minus_x = value_x - BAR_GAP - BAR_ROW;
-    int32_t step = 0;
-    char button_id[48];
-    std::snprintf(button_id, sizeof(button_id), "%s_minus", id);
-    if (touch_ui_button(ui, button_id, minus_x, y, BAR_ROW, BAR_ROW, "-", TouchButton::normal, TouchText::big))
-    {
-        step = -1;
-    }
-    touch_ui_rect(ui, value_x, y, value_width, BAR_ROW, palette->field_face);
-    float text_width = touch_ui_text_width(ui, value, TouchText::normal);
-    touch_ui_text(ui, std::floor(value_x + (value_width - text_width) * 0.5f),
-                  touch_ui_centered_text_y(ui, y, BAR_ROW, TouchText::normal), value, palette->field_text, TouchText::normal);
-    std::snprintf(button_id, sizeof(button_id), "%s_plus", id);
-    if (touch_ui_button(ui, button_id, plus_x, y, BAR_ROW, BAR_ROW, "+", TouchButton::normal, TouchText::big))
-    {
-        step = 1;
-    }
-    return step;
+    touch_ui_text(ui, x, touch_ui_centered_text_y(ui, y, BAR_ROW, TouchText::normal), name, ui->palette.text, TouchText::normal);
+    constexpr float VALUE_WIDTH = 40.0f;
+    float stepper_width = 2.0f * (BAR_ROW + TOUCH_UI_GAP) + VALUE_WIDTH;
+    return touch_ui_stepper(ui, id, value, x + width - stepper_width, y, stepper_width, BAR_ROW);
 }
 
 // Two fingers down: the picked group's size follows the distance between
@@ -169,7 +142,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         height += 4.0f;
         if (group == editor->selected)
         {
-            outline(ui, x, y, width, height, PICKED);
+            touch_ui_outline(ui, x, y, width, height, 1.0f, PICKED);
             float half = HANDLE * 0.5f;
             touch_ui_rect(ui, x - half, y - half, HANDLE, HANDLE, PICKED);
             touch_ui_rect(ui, x + width - half, y - half, HANDLE, HANDLE, PICKED);
@@ -178,7 +151,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         }
         else
         {
-            outline(ui, x, y, width, height, retro_ui_color_with_alpha(palette->text_highlight, 0.5f));
+            touch_ui_outline(ui, x, y, width, height, 1.0f, retro_ui_color_with_alpha(palette->text_highlight, 0.5f));
         }
     }
 
