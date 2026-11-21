@@ -16,11 +16,6 @@ constexpr float SHORT_SIDE_RETRO_PIXELS = 195.0f;
 constexpr float BUTTON_LIP = 2.0f;
 constexpr uint32_t LIP_SHADE = 0x48000000u;
 
-static ImU32 to_imgui(uint32_t argb)
-{
-    return IM_COL32((argb >> 16) & 0xFFu, (argb >> 8) & 0xFFu, argb & 0xFFu, (argb >> 24) & 0xFFu);
-}
-
 // Window pixels per font pixel for a text size.
 static float font_scale(const TouchUi* ui, TouchText size)
 {
@@ -63,7 +58,7 @@ void touch_ui_begin_screen(const TouchUi* ui, const char* id)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, to_imgui(ui->palette.background));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, retro_ui_color_imgui(ui->palette.background));
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                              ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove;
     ImGui::Begin(id, nullptr, flags);
@@ -126,14 +121,14 @@ float touch_ui_imgui_font_size(const TouchUi* ui, TouchText size)
 
 float touch_ui_text(const TouchUi* ui, float x, float y, const char* text, uint32_t argb, TouchText size)
 {
-    ImGui::GetWindowDrawList()->AddText(ui->font, font_size(ui, size), ImVec2(px(ui, x), px(ui, y)), to_imgui(argb), text);
+    ImGui::GetWindowDrawList()->AddText(ui->font, font_size(ui, size), ImVec2(px(ui, x), px(ui, y)), retro_ui_color_imgui(argb), text);
     return touch_ui_text_width(ui, text, size);
 }
 
 void touch_ui_rect(const TouchUi* ui, float x, float y, float width, float height, uint32_t argb)
 {
     ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(px(ui, x), px(ui, y)), ImVec2(px(ui, x + width), px(ui, y + height)),
-                                              to_imgui(argb));
+                                              retro_ui_color_imgui(argb));
 }
 
 // Where text of `size` goes to look centered in a box `height` tall: the

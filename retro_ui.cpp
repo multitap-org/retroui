@@ -75,15 +75,48 @@ void retro_ui_set_palette(const RetroUiPalette* palette)
     ImGui::GetStyle().AntiAliasedLinesUseTex = false;
 }
 
-static ImVec4 to_imgui(uint32_t argb)
+ImVec4 retro_ui_color_vec4(uint32_t argb)
 {
     return ImVec4(static_cast<float>((argb >> 16) & 0xFFu) / 255.0f, static_cast<float>((argb >> 8) & 0xFFu) / 255.0f,
                   static_cast<float>(argb & 0xFFu) / 255.0f, static_cast<float>(argb >> 24) / 255.0f);
 }
 
-static ImU32 to_imgui_u32(uint32_t argb)
+uint32_t retro_ui_color_imgui(uint32_t argb)
 {
-    return ImGui::ColorConvertFloat4ToU32(to_imgui(argb));
+    return IM_COL32((argb >> 16) & 0xFFu, (argb >> 8) & 0xFFu, argb & 0xFFu, (argb >> 24) & 0xFFu);
+}
+
+uint32_t retro_ui_color_with_alpha(uint32_t argb, float alpha)
+{
+    float a = static_cast<float>(argb >> 24) * alpha;
+    uint32_t faded = static_cast<uint32_t>(a < 0.0f ? 0.0f : (a > 255.0f ? 255.0f : a));
+    return (argb & 0x00FFFFFFu) | (faded << 24);
+}
+
+uint32_t retro_ui_color_set_alpha(uint32_t argb, uint32_t alpha)
+{
+    return (argb & 0x00FFFFFFu) | (alpha & 0xFF000000u);
+}
+
+uint32_t retro_ui_color_darker(uint32_t argb)
+{
+    uint32_t out = argb & 0xFF000000u;
+    for (int shift = 0; shift <= 16; shift += 8)
+    {
+        uint32_t channel = ((argb >> shift) & 0xFFu) * 7u / 10u;
+        out |= channel << shift;
+    }
+    return out;
+}
+
+float retro_ui_ease_out(uint64_t now_ms, uint64_t started_ms, uint64_t duration_ms)
+{
+    if (duration_ms == 0 || now_ms < started_ms || now_ms - started_ms >= duration_ms)
+    {
+        return 1.0f;
+    }
+    float t = static_cast<float>(now_ms - started_ms) / static_cast<float>(duration_ms);
+    return 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
 }
 
 // ImGui's borders are one flat color, so the raised edge is drawn by hand:
@@ -92,12 +125,12 @@ static void draw_bevel(ImVec2 position, ImVec2 size, float block, uint32_t light
 {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 end = ImVec2(position.x + size.x, position.y + size.y);
-    draw_list->AddRectFilled(position, ImVec2(end.x, position.y + block), to_imgui_u32(light));
-    draw_list->AddRectFilled(ImVec2(position.x, end.y - block), end, to_imgui_u32(dark));
+    draw_list->AddRectFilled(position, ImVec2(end.x, position.y + block), retro_ui_color_imgui(light));
+    draw_list->AddRectFilled(ImVec2(position.x, end.y - block), end, retro_ui_color_imgui(dark));
     if (sides)
     {
-        draw_list->AddRectFilled(position, ImVec2(position.x + block, end.y), to_imgui_u32(light));
-        draw_list->AddRectFilled(ImVec2(end.x - block, position.y), end, to_imgui_u32(dark));
+        draw_list->AddRectFilled(position, ImVec2(position.x + block, end.y), retro_ui_color_imgui(light));
+        draw_list->AddRectFilled(ImVec2(end.x - block, position.y), end, retro_ui_color_imgui(dark));
     }
 }
 
@@ -114,7 +147,7 @@ static void draw_window_shadow(float block)
     ImVec2 min = window->Pos;
     ImVec2 max(min.x + window->Size.x, min.y + window->Size.y);
     float offset = 2.0f * block;
-    ImU32 color = (to_imgui_u32(g_palette.text_shadow) & ~IM_COL32_A_MASK) | (64u << IM_COL32_A_SHIFT);
+    ImU32 color = (retro_ui_color_imgui(g_palette.text_shadow) & ~IM_COL32_A_MASK) | (64u << IM_COL32_A_SHIFT);
     ImDrawList* draw_list = window->DrawList;
     draw_list->PushClipRect(min, ImVec2(max.x + offset, max.y + offset), false);
     draw_list->AddRectFilled(ImVec2(max.x, min.y + offset), ImVec2(max.x + offset, max.y + offset), color);
@@ -142,7 +175,7 @@ static void draw_label(ImDrawList* draw_list, ImVec2 text_position, const char* 
 {
     ImFont* font = ImGui::GetFont();
     float size = ImGui::GetFontSize();
-    draw_list->AddText(font, size, text_position, to_imgui_u32(lit ? g_palette.text_highlight : g_palette.text), label);
+    draw_list->AddText(font, size, text_position, retro_ui_color_imgui(lit ? g_palette.text_highlight : g_palette.text), label);
 }
 
 // Where ImGui will put the text of the next widget on this line.
@@ -192,7 +225,7 @@ static void push_pixel_font(ImFont* pixel_font, float block)
 static void push_bar_highlight()
 {
     ImVec4 none(0.0f, 0.0f, 0.0f, 0.0f);
-    ImVec4 header = g_palette.menu_boxes ? none : to_imgui(g_palette.highlight);
+    ImVec4 header = g_palette.menu_boxes ? none : retro_ui_color_vec4(g_palette.highlight);
     ImGui::PushStyleColor(ImGuiCol_Header, header);
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, header);
     ImGui::PushStyleColor(ImGuiCol_HeaderActive, header);
@@ -217,11 +250,11 @@ static void draw_title_box(ImDrawList* draw_list, ImVec2 label_position, const c
     float text_width = ImGui::CalcTextSize(label).x;
     ImVec2 min(label_position.x - 3.0f * block, bar_top + block);
     ImVec2 max(label_position.x + text_width + 3.0f * block, bar_bottom - block);
-    draw_list->AddRectFilled(min, max, to_imgui_u32(lit ? g_palette.highlight : g_palette.menu_box_face));
-    draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), to_imgui_u32(g_palette.menu_box_light));
-    draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), to_imgui_u32(g_palette.menu_box_light));
-    draw_list->AddRectFilled(ImVec2(min.x, max.y - block), max, to_imgui_u32(g_palette.menu_box_dark));
-    draw_list->AddRectFilled(ImVec2(max.x - block, min.y), max, to_imgui_u32(g_palette.menu_box_dark));
+    draw_list->AddRectFilled(min, max, retro_ui_color_imgui(lit ? g_palette.highlight : g_palette.menu_box_face));
+    draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), retro_ui_color_imgui(g_palette.menu_box_light));
+    draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), retro_ui_color_imgui(g_palette.menu_box_light));
+    draw_list->AddRectFilled(ImVec2(min.x, max.y - block), max, retro_ui_color_imgui(g_palette.menu_box_dark));
+    draw_list->AddRectFilled(ImVec2(max.x - block, min.y), max, retro_ui_color_imgui(g_palette.menu_box_dark));
 }
 
 // The bar's background: face at the top and bottom, center in the middle
@@ -233,8 +266,8 @@ static void draw_bar_gradient(float block)
     ImVec2 top = bar->Pos;
     float middle = top.y + static_cast<float>(static_cast<int32_t>(bar->Size.y * 0.5f / block)) * block;
     ImVec2 end(top.x + bar->Size.x, top.y + bar->Size.y);
-    ImU32 face = to_imgui_u32(g_palette.bar_face);
-    ImU32 center = to_imgui_u32(g_palette.bar_center);
+    ImU32 face = retro_ui_color_imgui(g_palette.bar_face);
+    ImU32 center = retro_ui_color_imgui(g_palette.bar_center);
     draw_list->AddRectFilledMultiColor(top, ImVec2(end.x, middle), face, face, center, center);
     draw_list->AddRectFilledMultiColor(ImVec2(top.x, middle), end, center, center, face, face);
 }
@@ -335,13 +368,13 @@ int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, to_imgui(g_palette.menu_face));
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(g_palette.text));
-    ImGui::PushStyleColor(ImGuiCol_Header, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_Border, to_imgui(g_palette.panel_dark));
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, retro_ui_color_vec4(g_palette.menu_face));
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(g_palette.text));
+    ImGui::PushStyleColor(ImGuiCol_Header, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_Border, retro_ui_color_vec4(g_palette.panel_dark));
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -435,12 +468,12 @@ void retro_ui_end_layer()
 
 void retro_ui_layer_rect(float x, float y, float width, float height, uint32_t argb)
 {
-    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, y), ImVec2(x + width, y + height), to_imgui_u32(argb));
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, y), ImVec2(x + width, y + height), retro_ui_color_imgui(argb));
 }
 
 void retro_ui_layer_text(float x, float y, const char* text, uint32_t argb)
 {
-    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(x, y), to_imgui_u32(argb), text);
+    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(x, y), retro_ui_color_imgui(argb), text);
 }
 
 float retro_ui_layer_text_width(const char* text)
@@ -452,7 +485,7 @@ void retro_ui_layer_image(uint64_t texture, float x, float y, float width, float
                           uint32_t argb)
 {
     ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(x, y), ImVec2(x + width, y + height),
-                                         ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max), to_imgui_u32(argb));
+                                         ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max), retro_ui_color_imgui(argb));
 }
 
 void retro_ui_layer_clip(float x, float y, float width, float height)
@@ -491,41 +524,41 @@ constexpr int THEME_COLOR_COUNT = 34;
 
 static void push_theme_colors()
 {
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(g_palette.text));
-    ImGui::PushStyleColor(ImGuiCol_TextDisabled, to_imgui(g_palette.text_disabled));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, to_imgui(g_palette.panel_face));
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, to_imgui(g_palette.field_face));
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, to_imgui(g_palette.panel_face));
-    ImGui::PushStyleColor(ImGuiCol_Border, to_imgui(g_palette.panel_dark));
-    ImGui::PushStyleColor(ImGuiCol_TitleBg, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imgui(g_palette.field_face));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, to_imgui(g_palette.field_hover));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, to_imgui(g_palette.field_hover));
-    ImGui::PushStyleColor(ImGuiCol_Button, to_imgui(g_palette.button_face));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_Header, to_imgui(selected_color()));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, to_imgui(g_palette.text_highlight));
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(g_palette.text));
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, retro_ui_color_vec4(g_palette.text_disabled));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, retro_ui_color_vec4(g_palette.panel_face));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, retro_ui_color_vec4(g_palette.field_face));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, retro_ui_color_vec4(g_palette.panel_face));
+    ImGui::PushStyleColor(ImGuiCol_Border, retro_ui_color_vec4(g_palette.panel_dark));
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, retro_ui_color_vec4(g_palette.field_face));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, retro_ui_color_vec4(g_palette.field_hover));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, retro_ui_color_vec4(g_palette.field_hover));
+    ImGui::PushStyleColor(ImGuiCol_Button, retro_ui_color_vec4(g_palette.button_face));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_Header, retro_ui_color_vec4(selected_color()));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, retro_ui_color_vec4(g_palette.text_highlight));
     // Scroll bars are drawn by retro_ui_scrollbars(); ImGui's are hidden.
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_NavCursor, to_imgui(g_palette.text_highlight));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, to_imgui(g_palette.bar_light));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_Tab, to_imgui(g_palette.bar_dark));
-    ImGui::PushStyleColor(ImGuiCol_TabHovered, to_imgui(g_palette.highlight));
-    ImGui::PushStyleColor(ImGuiCol_TabSelected, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, to_imgui(g_palette.text_highlight));
-    ImGui::PushStyleColor(ImGuiCol_TabDimmed, to_imgui(g_palette.bar_dark));
-    ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, to_imgui(g_palette.bar_face));
-    ImGui::PushStyleColor(ImGuiCol_Separator, to_imgui(g_palette.panel_dark));
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, retro_ui_color_vec4(g_palette.text_highlight));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, retro_ui_color_vec4(g_palette.bar_light));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_Tab, retro_ui_color_vec4(g_palette.bar_dark));
+    ImGui::PushStyleColor(ImGuiCol_TabHovered, retro_ui_color_vec4(g_palette.highlight));
+    ImGui::PushStyleColor(ImGuiCol_TabSelected, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, retro_ui_color_vec4(g_palette.text_highlight));
+    ImGui::PushStyleColor(ImGuiCol_TabDimmed, retro_ui_color_vec4(g_palette.bar_dark));
+    ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, retro_ui_color_vec4(g_palette.bar_face));
+    ImGui::PushStyleColor(ImGuiCol_Separator, retro_ui_color_vec4(g_palette.panel_dark));
 }
 
 constexpr int THEME_VAR_COUNT = 12;   // the PushStyleVar calls in retro_ui_push_theme
@@ -572,13 +605,13 @@ static void draw_title_bar()
     ImRect title = window->TitleBarRect();
     ImDrawList* draw_list = window->DrawList;
     draw_list->PushClipRect(title.Min, title.Max, false);
-    ImU32 top = to_imgui_u32(g_palette.title_top);
-    ImU32 bottom = to_imgui_u32(g_palette.title_bottom);
+    ImU32 top = retro_ui_color_imgui(g_palette.title_top);
+    ImU32 bottom = retro_ui_color_imgui(g_palette.title_bottom);
     draw_list->AddRectFilledMultiColor(title.Min, title.Max, top, top, bottom, bottom);
     const ImGuiStyle& style = ImGui::GetStyle();
     ImVec2 position(title.Min.x + style.FramePadding.x, title.Min.y + style.FramePadding.y);
     const char* end = ImGui::FindRenderedTextEnd(window->Name);
-    draw_list->AddText(position, to_imgui_u32(g_palette.text), window->Name, end);
+    draw_list->AddText(position, retro_ui_color_imgui(g_palette.text), window->Name, end);
     draw_list->PopClipRect();
 }
 
@@ -609,12 +642,12 @@ bool retro_ui_close_button()
         pressed = ImGui::ButtonBehavior(box, id, &hovered, &held);
         if (hovered || held)
         {
-            window->DrawList->AddRectFilled(box.Min, box.Max, to_imgui_u32(g_palette.highlight));
+            window->DrawList->AddRectFilled(box.Min, box.Max, retro_ui_color_imgui(g_palette.highlight));
         }
         ImVec2 text = ImGui::CalcTextSize("X");
         ImVec2 position(box.Min.x + static_cast<float>(static_cast<int32_t>((side - text.x) * 0.5f)),
                         box.Min.y + static_cast<float>(static_cast<int32_t>((side - text.y) * 0.5f)));
-        window->DrawList->AddText(position, to_imgui_u32(hovered ? g_palette.text_highlight : g_palette.text), "X");
+        window->DrawList->AddText(position, retro_ui_color_imgui(hovered ? g_palette.text_highlight : g_palette.text), "X");
     }
     ImGui::PopClipRect();
     return pressed;
@@ -635,8 +668,8 @@ void retro_ui_end_window()
 static void draw_raised(ImVec2 min, ImVec2 max, float block)
 {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImU32 light = to_imgui_u32(g_palette.button_light);
-    ImU32 dark = to_imgui_u32(g_palette.button_dark);
+    ImU32 light = retro_ui_color_imgui(g_palette.button_light);
+    ImU32 dark = retro_ui_color_imgui(g_palette.button_dark);
     draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), light);
     draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), light);
     draw_list->AddRectFilled(ImVec2(min.x, max.y - block), max, dark);
@@ -647,8 +680,8 @@ static void draw_raised(ImVec2 min, ImVec2 max, float block)
 // upside down while pressed.
 static void draw_button_face(ImVec2 min, ImVec2 max, bool pressed)
 {
-    ImU32 top = to_imgui_u32(pressed ? g_palette.button_bottom : g_palette.button_face);
-    ImU32 bottom = to_imgui_u32(pressed ? g_palette.button_face : g_palette.button_bottom);
+    ImU32 top = retro_ui_color_imgui(pressed ? g_palette.button_bottom : g_palette.button_face);
+    ImU32 bottom = retro_ui_color_imgui(pressed ? g_palette.button_face : g_palette.button_bottom);
     ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min, max, top, top, bottom, bottom);
 }
 
@@ -681,7 +714,7 @@ bool retro_ui_button_sized(const char* label, float width, float height)
     float y = static_cast<float>(static_cast<int32_t>(min.y + (max.y - min.y - text.y) * 0.5f)) + (held ? block : 0.0f);
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     bool disabled = (ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0;
-    draw_list->AddText(ImVec2(x, y), to_imgui_u32(disabled ? g_palette.text_disabled : g_palette.button_text), label, end);
+    draw_list->AddText(ImVec2(x, y), retro_ui_color_imgui(disabled ? g_palette.text_disabled : g_palette.button_text), label, end);
     return pressed;
 }
 
@@ -727,7 +760,7 @@ bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, 
         draw_raised(min, max, block);
     }
     bool disabled = (ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0;
-    ImU32 color = to_imgui_u32(disabled ? g_palette.text_disabled : g_palette.button_text);
+    ImU32 color = retro_ui_color_imgui(disabled ? g_palette.text_disabled : g_palette.button_text);
     float x0 = static_cast<float>(static_cast<int32_t>(min.x + (max.x - min.x - 9.0f * block) * 0.5f));
     float y0 = static_cast<float>(static_cast<int32_t>(min.y + (max.y - min.y - 9.0f * block) * 0.5f)) +
                (held ? block : 0.0f);
@@ -775,9 +808,9 @@ bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t
         if (chosen)
         {
             // Pressed in: the highlight color, sunken (dark top and left).
-            draw_list->AddRectFilled(min, max, to_imgui_u32(g_palette.highlight));
-            draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), to_imgui_u32(g_palette.button_dark));
-            draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), to_imgui_u32(g_palette.button_dark));
+            draw_list->AddRectFilled(min, max, retro_ui_color_imgui(g_palette.highlight));
+            draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), retro_ui_color_imgui(g_palette.button_dark));
+            draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), retro_ui_color_imgui(g_palette.button_dark));
         }
         else
         {
@@ -792,7 +825,7 @@ bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t
         bool down = chosen || held;
         float x = static_cast<float>(static_cast<int32_t>(min.x + (max.x - min.x - text.x) * 0.5f)) + (chosen ? block : 0.0f);
         float y = static_cast<float>(static_cast<int32_t>(min.y + (max.y - min.y - text.y) * 0.5f)) + (down ? block : 0.0f);
-        draw_list->AddText(ImVec2(x, y), to_imgui_u32(chosen ? g_palette.text_highlight : g_palette.button_text), labels[i],
+        draw_list->AddText(ImVec2(x, y), retro_ui_color_imgui(chosen ? g_palette.text_highlight : g_palette.button_text), labels[i],
                            end);
     }
     ImGui::PopID();
@@ -817,8 +850,8 @@ void retro_ui_end_list()
     ImVec2 max = ImGui::GetItemRectMax();
     float block = retro_pixel();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImU32 dark = to_imgui_u32(g_palette.panel_dark);
-    ImU32 light = to_imgui_u32(g_palette.panel_light);
+    ImU32 dark = retro_ui_color_imgui(g_palette.panel_dark);
+    ImU32 light = retro_ui_color_imgui(g_palette.panel_light);
     draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), dark);
     draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), dark);
     draw_list->AddRectFilled(ImVec2(min.x, max.y - block), max, light);
@@ -861,9 +894,9 @@ bool retro_ui_checkbox(const char* label, bool* value)
     // ImGui draws the box, label and highlight; its check mark is made
     // invisible and ours drawn in its place, on a raised box.
     ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imgui(g_palette.button_face));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, to_imgui(g_palette.button_face));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, to_imgui(g_palette.button_face));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, retro_ui_color_vec4(g_palette.button_face));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, retro_ui_color_vec4(g_palette.button_face));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, retro_ui_color_vec4(g_palette.button_face));
     bool changed = ImGui::Checkbox(label, value);
     ImGui::PopStyleColor(4);
     float side = ImGui::GetFrameHeight();
@@ -876,7 +909,7 @@ bool retro_ui_checkbox(const char* label, bool* value)
         // Whole pixels, so the mark stays sharp.
         ImVec2 position(box.x + static_cast<float>(static_cast<int32_t>((side - mark.x) * 0.5f)),
                         box.y + static_cast<float>(static_cast<int32_t>((side - mark.y) * 0.5f)));
-        ImGui::GetWindowDrawList()->AddText(position, to_imgui_u32(g_palette.check), PIXEL_FONT_UTF8_CHECK);
+        ImGui::GetWindowDrawList()->AddText(position, retro_ui_color_imgui(g_palette.check), PIXEL_FONT_UTF8_CHECK);
     }
     return changed;
 }
@@ -913,9 +946,9 @@ void retro_ui_cursor(int32_t scale, bool visible)
     float block = static_cast<float>(scale);
     ImDrawList* draw_list = ImGui::GetForegroundDrawList();
     ImVec2 tip(static_cast<float>(static_cast<int32_t>(io.MousePos.x)), static_cast<float>(static_cast<int32_t>(io.MousePos.y)));
-    ImU32 shadow = (to_imgui_u32(g_palette.text_shadow) & ~IM_COL32_A_MASK) | (128u << IM_COL32_A_SHIFT);
-    ImU32 body = to_imgui_u32(g_palette.cursor);
-    ImU32 edge = to_imgui_u32(g_palette.cursor_edge);
+    ImU32 shadow = (retro_ui_color_imgui(g_palette.text_shadow) & ~IM_COL32_A_MASK) | (128u << IM_COL32_A_SHIFT);
+    ImU32 body = retro_ui_color_imgui(g_palette.cursor);
+    ImU32 edge = retro_ui_color_imgui(g_palette.cursor_edge);
     // With the palette's shadows: the shape again, 2 pixels down and right.
     for (int pass = g_palette.shadows ? 0 : 1; pass < 2; pass++)
     {
@@ -973,7 +1006,7 @@ bool retro_ui_collapsing_header(const char* label, int flags)
 
     ImVec2 bar = ImGui::GetItemRectMin();
     const ImGuiStyle& style = ImGui::GetStyle();
-    uint32_t color = to_imgui_u32(ImGui::IsItemHovered() ? g_palette.text_highlight : g_palette.text);
+    uint32_t color = retro_ui_color_imgui(ImGui::IsItemHovered() ? g_palette.text_highlight : g_palette.text);
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     // Whole pixels, so the glyphs stay sharp. ImGui puts the label after the
     // arrow's square (font size) and three frame paddings.
@@ -987,7 +1020,7 @@ bool retro_ui_collapsing_header(const char* label, int flags)
 
 void retro_ui_push_field_text()
 {
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(g_palette.field_text));
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(g_palette.field_text));
 }
 
 void retro_ui_pop_field_text()
@@ -997,7 +1030,7 @@ void retro_ui_pop_field_text()
 
 void retro_ui_separator_text(const char* label)
 {
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(g_palette.section));
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(g_palette.section));
     ImGui::SeparatorText(label);
     ImGui::PopStyleColor();
 }
@@ -1013,18 +1046,18 @@ bool retro_ui_begin_combo(const char* label, const char* preview)
     float width = ImGui::CalcItemWidth();
     float height = ImGui::GetFrameHeight();
 
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(g_palette.field_text));   // the preview, in its field
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(g_palette.field_text));   // the preview, in its field
     bool open = ImGui::BeginCombo(label, preview, ImGuiComboFlags_NoArrowButton);
     ImGui::PopStyleColor();
 
     // A square at the right end, button-colored, with the arrow glyph centered.
     ImVec2 square_min(position.x + width - height, position.y);
     ImVec2 square_max(position.x + width, position.y + height);
-    draw_list->AddRectFilled(square_min, square_max, to_imgui_u32(open ? g_palette.highlight : g_palette.bar_face));
+    draw_list->AddRectFilled(square_min, square_max, retro_ui_color_imgui(open ? g_palette.highlight : g_palette.bar_face));
     ImVec2 arrow = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, 0.0f, PIXEL_FONT_UTF8_ARROW_DOWN);
     ImVec2 arrow_position(static_cast<float>(static_cast<int32_t>(square_min.x + (height - arrow.x) * 0.5f)),
                           static_cast<float>(static_cast<int32_t>(square_min.y + (height - arrow.y) * 0.5f)));
-    draw_list->AddText(ImGui::GetFont(), ImGui::GetFontSize(), arrow_position, to_imgui_u32(g_palette.text),
+    draw_list->AddText(ImGui::GetFont(), ImGui::GetFontSize(), arrow_position, retro_ui_color_imgui(g_palette.text),
                        PIXEL_FONT_UTF8_ARROW_DOWN);
     return open;
 }
@@ -1085,7 +1118,7 @@ void retro_ui_text_shadows(ImDrawData* draw_data, int32_t scale)
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     ImVec2 white = atlas->TexUvWhitePixel;
     float offset = static_cast<float>(scale);
-    ImU32 shadow = to_imgui_u32(g_palette.text_shadow);
+    ImU32 shadow = retro_ui_color_imgui(g_palette.text_shadow);
     ImVector<ImDrawIdx> indices;
     for (int l = 0; l < draw_data->CmdLists.Size; l++)
     {
@@ -1180,11 +1213,11 @@ static void draw_scrollbar(ImGuiWindow* window, float block)
     draw_list->PushTexture(ImGui::GetIO().Fonts->TexRef);
     // The track; sunken (dark top and left, light bottom and right) only in
     // a theme whose buttons have a raised edge: the flat ones stay flat.
-    draw_list->AddRectFilled(frame.Min, frame.Max, to_imgui_u32(g_palette.field_face));
+    draw_list->AddRectFilled(frame.Min, frame.Max, retro_ui_color_imgui(g_palette.field_face));
     if (g_palette.button_light != g_palette.button_dark)
     {
-        ImU32 dark = to_imgui_u32(g_palette.panel_dark);
-        ImU32 light = to_imgui_u32(g_palette.panel_light);
+        ImU32 dark = retro_ui_color_imgui(g_palette.panel_dark);
+        ImU32 light = retro_ui_color_imgui(g_palette.panel_light);
         draw_list->AddRectFilled(frame.Min, ImVec2(frame.Max.x, frame.Min.y + block), dark);
         draw_list->AddRectFilled(frame.Min, ImVec2(frame.Min.x + block, frame.Max.y), dark);
         draw_list->AddRectFilled(ImVec2(frame.Min.x, frame.Max.y - block), frame.Max, light);
@@ -1193,13 +1226,13 @@ static void draw_scrollbar(ImGuiWindow* window, float block)
     // The grip.
     ImVec2 min(track.Min.x, grip_y);
     ImVec2 max(track.Max.x, grip_y + grip);
-    ImU32 top = to_imgui_u32(held ? g_palette.button_bottom : g_palette.button_face);
-    ImU32 bottom = to_imgui_u32(held ? g_palette.button_face : g_palette.button_bottom);
+    ImU32 top = retro_ui_color_imgui(held ? g_palette.button_bottom : g_palette.button_face);
+    ImU32 bottom = retro_ui_color_imgui(held ? g_palette.button_face : g_palette.button_bottom);
     draw_list->AddRectFilledMultiColor(min, max, top, top, bottom, bottom);
     if (!held)
     {
-        ImU32 grip_light = to_imgui_u32(g_palette.button_light);
-        ImU32 grip_dark = to_imgui_u32(g_palette.button_dark);
+        ImU32 grip_light = retro_ui_color_imgui(g_palette.button_light);
+        ImU32 grip_dark = retro_ui_color_imgui(g_palette.button_dark);
         draw_list->AddRectFilled(min, ImVec2(max.x, min.y + block), grip_light);
         draw_list->AddRectFilled(min, ImVec2(min.x + block, max.y), grip_light);
         draw_list->AddRectFilled(ImVec2(min.x, max.y - block), max, grip_dark);
@@ -1254,12 +1287,12 @@ static uint32_t attention()
 
 void retro_ui_push_section_text()
 {
-    ImGui::PushStyleColor(ImGuiCol_Text, to_imgui(attention()));
+    ImGui::PushStyleColor(ImGuiCol_Text, retro_ui_color_vec4(attention()));
 }
 
 uint32_t retro_ui_attention_color()
 {
-    return to_imgui_u32(attention());
+    return retro_ui_color_imgui(attention());
 }
 
 void retro_ui_pop_section_text()

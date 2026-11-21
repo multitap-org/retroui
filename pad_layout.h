@@ -154,5 +154,3 @@ bool pad_button(const TouchUi* ui, const PadFrame* frame, const char* id, float 
 void pad_text(const TouchUi* ui, const PadFrame* frame, float x, float y, const char* text, uint32_t argb, TouchText size,
               bool centered);
 
-// `argb` with its alpha multiplied by `alpha` (0..1).
-uint32_t pad_fade(uint32_t argb, float alpha);

@@ -11,6 +11,7 @@
 #include <cstdint>
 
 struct ImFont;
+struct ImVec4;
 
 // The colors of the whole UI (0xAARRGGBB; alpha is always FF). Themes are
 // palettes (decided by Andrés, 2026-11-14, renamed 2026-11-19): BLUE (navy, the
@@ -112,6 +113,23 @@ void retro_ui_status_line_from(ImFont* pixel_font, int32_t scale, const char* te
 
 // The palette everything is drawn with now.
 const RetroUiPalette* retro_ui_palette();
+
+// Colors (0xAARRGGBB, as in the palette) for ImGui and for fading. Every
+// frontend and view used to keep its own copy of these.
+ImVec4   retro_ui_color_vec4(uint32_t argb);    // ImGui's float color (styles, ColorEdit)
+uint32_t retro_ui_color_imgui(uint32_t argb);   // ImGui's packed color (ImU32, for ImDrawList)
+// The color at `alpha` (0..1) of its own alpha: fading something in or out.
+uint32_t retro_ui_color_with_alpha(uint32_t argb, float alpha);
+// The color with its alpha replaced: `alpha` is the top byte (0xAA000000).
+uint32_t retro_ui_color_set_alpha(uint32_t argb, uint32_t alpha);
+// The color at 70% brightness, same alpha (a button's lip, a pressed face).
+uint32_t retro_ui_color_darker(uint32_t argb);
+
+// An animation's progress, eased out (fast, then settling: a cubic): 0 at
+// `started_ms`, 1 once `duration_ms` passed (and 1 when now_ms is before
+// started_ms or duration_ms is 0, so a missed start never hides anything).
+// For things that slide or fade in: QUICK MENU, HUD boxes, the DEVICES board.
+float retro_ui_ease_out(uint64_t now_ms, uint64_t started_ms, uint64_t duration_ms);
 
 // Drawing over the game without widgets (the ports' tabs, DEVICES): a
 // full-screen layer that takes no input, with the pixel font at `scale`.

@@ -34,22 +34,6 @@ constexpr uint32_t AFTER_ALPHA = 0x66000000u;  // one after the cursor (40%)
 constexpr uint64_t HUD_MS      = 2500;
 constexpr uint64_t HUD_FADE_MS = 500;
 
-static uint32_t with_alpha(uint32_t argb, uint32_t alpha)
-{
-    return (argb & 0x00FFFFFFu) | alpha;
-}
-
-static uint32_t darker(uint32_t argb)
-{
-    uint32_t out = argb & 0xFF000000u;
-    for (int shift = 0; shift <= 16; shift += 8)
-    {
-        uint32_t channel = ((argb >> shift) & 0xFFu) * 7u / 10u;
-        out |= channel << shift;
-    }
-    return out;
-}
-
 static bool clicked_in(float x, float y, float width, float height)
 {
     const ImGuiIO& io = ImGui::GetIO();
@@ -65,7 +49,7 @@ static float draw_chip(float x, float y, float height, float pad, const char* la
     float width = std::floor(retro_ui_layer_text_width(label)) + 2.0f * pad * block;
     float lip = CHIP_LIP * block;
     retro_ui_layer_rect(x, y, width, height - lip, face);
-    retro_ui_layer_rect(x, y + height - lip, width, lip, darker(face));
+    retro_ui_layer_rect(x, y + height - lip, width, lip, retro_ui_color_darker(face));
     float text_y = y + std::floor((height / block - CHIP_LIP - LINE) * 0.5f) * block;
     retro_ui_layer_text(x + pad * block, text_y, label, color);
     return width;
@@ -92,7 +76,7 @@ static void draw_header(const DvrViewText* text, float top, float width, float b
     const RetroUiPalette* palette = retro_ui_palette();
     float y = top + GAP * block;
     retro_ui_layer_rect(MARGIN * block, y, width - 2.0f * MARGIN * block, HEADER * block,
-                        with_alpha(palette->panel_dark, CARD_ALPHA));
+                        retro_ui_color_set_alpha(palette->panel_dark, CARD_ALPHA));
     float x = (MARGIN + 2.0f) * block;
     x += draw_chip(x, y + block, CHIP * block, CHIP_PAD, text->title, palette->highlight, palette->text_highlight, block);
     float text_y = y + 2.0f * block;
@@ -152,11 +136,11 @@ static void draw_thumbs(const DvrView* view, float top, float width, float block
         else
         {
             retro_ui_layer_rect(x - block, y - block, w + 2.0f * block, h + 2.0f * block,
-                                with_alpha(palette->panel_face, CARD_ALPHA));
+                                retro_ui_color_set_alpha(palette->panel_face, CARD_ALPHA));
         }
         if (thumb->texture != 0)
         {
-            uint32_t tint = big ? 0xFFFFFFFFu : with_alpha(0xFFFFFFu, thumb->after ? AFTER_ALPHA : DIM_ALPHA);
+            uint32_t tint = big ? 0xFFFFFFFFu : retro_ui_color_set_alpha(0xFFFFFFu, thumb->after ? AFTER_ALPHA : DIM_ALPHA);
             if (!big)
             {
                 retro_ui_layer_rect(x, y, w, h, 0xFF000000u);   // dimmed toward black, not the card
@@ -238,7 +222,7 @@ static void draw_hints(const DvrView* view, float y, float width, float block, D
     }
     // Gamepad: a card along the bottom, key chips and what they do.
     retro_ui_layer_rect(MARGIN * block, y, width - 2.0f * MARGIN * block, HINTS * block,
-                        with_alpha(palette->panel_dark, CARD_ALPHA));
+                        retro_ui_color_set_alpha(palette->panel_dark, CARD_ALPHA));
     float spacing = 10.0f * block;
     float total = 0.0f;
     for (uint32_t i = 0; i < count; i++)
@@ -310,7 +294,7 @@ void dvr_view_draw_hud(ImFont* pixel_font, int32_t scale, const char* text, uint
     float w = std::floor(retro_ui_layer_text_width(text)) + 2.0f * CHIP_PAD * block;
     uint32_t card = static_cast<uint32_t>(static_cast<float>(CARD_ALPHA >> 24) * fade) << 24;
     uint32_t ink = static_cast<uint32_t>(255.0f * fade) << 24;
-    retro_ui_layer_rect(MARGIN * block, MARGIN * block, w, CHIP * block, with_alpha(palette->panel_dark, card));
-    retro_ui_layer_text((MARGIN + CHIP_PAD) * block, (MARGIN + 2.0f) * block, text, with_alpha(palette->section, ink));
+    retro_ui_layer_rect(MARGIN * block, MARGIN * block, w, CHIP * block, retro_ui_color_set_alpha(palette->panel_dark, card));
+    retro_ui_layer_text((MARGIN + CHIP_PAD) * block, (MARGIN + 2.0f) * block, text, retro_ui_color_set_alpha(palette->section, ink));
     retro_ui_end_layer();
 }

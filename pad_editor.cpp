@@ -178,7 +178,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         }
         else
         {
-            outline(ui, x, y, width, height, pad_fade(palette->text_highlight, 0.5f));
+            outline(ui, x, y, width, height, retro_ui_color_with_alpha(palette->text_highlight, 0.5f));
         }
     }
 

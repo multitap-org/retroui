@@ -202,23 +202,6 @@ void ports_view_pick_next(PortsView* view, int32_t direction)
 // Drawing pieces (window pixels; `block` = one retro pixel)
 // ---------------------------------------------------------------------------
 
-static uint32_t with_alpha(uint32_t argb, uint32_t alpha)
-{
-    return (argb & 0x00FFFFFFu) | alpha;
-}
-
-// A button's lip: its face, darker.
-static uint32_t darker(uint32_t argb)
-{
-    uint32_t out = argb & 0xFF000000u;
-    for (int shift = 0; shift <= 16; shift += 8)
-    {
-        uint32_t channel = ((argb >> shift) & 0xFFu) * 7u / 10u;
-        out |= channel << shift;
-    }
-    return out;
-}
-
 // One LED per port, the port's own lit when someone is on it. Returns the width.
 static float draw_leds(float x, float y, float block, uint32_t count, uint32_t port, bool lit)
 {
@@ -287,7 +270,7 @@ static void draw_chip(const PortsView* view, const PortsViewChip* chip, const Po
     float height = view->chip_height * block;
     float lip = CHIP_LIP * block;
     retro_ui_layer_rect(x, y, width, height - lip, face);
-    retro_ui_layer_rect(x, y + height - lip, width, lip, darker(face));
+    retro_ui_layer_rect(x, y + height - lip, width, lip, retro_ui_color_darker(face));
     if (chip->yours && !chip->gone)
     {
         retro_ui_layer_rect(x, y, YOURS_BAR * block, height, palette->text_highlight);
@@ -357,7 +340,7 @@ static void draw_tab(const PortsView* view, uint32_t port, const PortsViewText* 
     float width = TAB_WIDTH * block;
     // The whole card; what hasn't risen yet is below the window's edge.
     retro_ui_layer_rect(x, y, width, card_height(view, column) * block,
-                        with_alpha(palette->panel_face, lit ? LIT_ALPHA : CARD_ALPHA));
+                        retro_ui_color_set_alpha(palette->panel_face, lit ? LIT_ALPHA : CARD_ALPHA));
 
     // First line: the LEDs, P1, a link's ping.
     float line_x = x + CARD_PADDING * block;
@@ -514,7 +497,7 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     view->board_rise = view->board_rise > 0.995f ? 1.0f : view->board_rise;
     float sheet_top = std::floor(screen_height - sheet_height * view->board_rise);
     retro_ui_begin_layer("##ports_board", pixel_font, scale, true);
-    retro_ui_layer_rect(0.0f, sheet_top, screen_width, sheet_height, with_alpha(palette->panel_dark, SHEET_ALPHA));
+    retro_ui_layer_rect(0.0f, sheet_top, screen_width, sheet_height, retro_ui_color_set_alpha(palette->panel_dark, SHEET_ALPHA));
     retro_ui_layer_rect(0.0f, sheet_top, screen_width, block, palette->panel_light);   // its top edge
 
     // The title bar with DONE, and the hint under it (piccoletto's).
@@ -525,11 +508,11 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float header_height = BOARD_HEADER * block;
     float done_width = DONE_WIDTH * block;
     float text_offset = std::floor((BOARD_HEADER - LINE) * 0.5f) * block;
-    retro_ui_layer_rect(margin, header_y, inner_width - done_width - gap, header_height, with_alpha(palette->panel_dark, CARD_ALPHA));
+    retro_ui_layer_rect(margin, header_y, inner_width - done_width - gap, header_height, retro_ui_color_set_alpha(palette->panel_dark, CARD_ALPHA));
     retro_ui_layer_text(margin + 6.0f * block, header_y + text_offset, text->title, palette->text_highlight);
     float done_x = margin + inner_width - done_width;
     retro_ui_layer_rect(done_x, header_y, done_width, header_height - CHIP_LIP * block, palette->highlight);
-    retro_ui_layer_rect(done_x, header_y + header_height - CHIP_LIP * block, done_width, CHIP_LIP * block, darker(palette->highlight));
+    retro_ui_layer_rect(done_x, header_y + header_height - CHIP_LIP * block, done_width, CHIP_LIP * block, retro_ui_color_darker(palette->highlight));
     if (view->done_focus)
     {
         // Reached with UP / DOWN: an outline in the text color (A takes it).
@@ -544,7 +527,7 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     input->done = clicked_in(done_x, header_y, done_width, header_height);
     float hint_y = header_y + header_height + gap;
     float hint_height = BOARD_HINT * block;
-    retro_ui_layer_rect(margin, hint_y, inner_width, hint_height, with_alpha(palette->panel_dark, CARD_ALPHA));
+    retro_ui_layer_rect(margin, hint_y, inner_width, hint_height, retro_ui_color_set_alpha(palette->panel_dark, CARD_ALPHA));
     retro_ui_layer_clip(margin, hint_y, inner_width, hint_height);
     retro_ui_layer_text(margin + 6.0f * block, hint_y + std::floor((BOARD_HINT - LINE) * 0.5f) * block, text->help,
                         palette->text_disabled);
@@ -593,7 +576,7 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
         {
             continue;
         }
-        retro_ui_layer_rect(x, content_y, column_width, card, with_alpha(palette->panel_face, CARD_ALPHA));
+        retro_ui_layer_rect(x, content_y, column_width, card, retro_ui_color_set_alpha(palette->panel_face, CARD_ALPHA));
         float line_x = x + CARD_PADDING * block;
         float line_y = content_y + CARD_PADDING * block;
         if (port < 0)
@@ -644,13 +627,13 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float arrow_y = content_y + std::floor((card - LINE * block) * 0.5f);
     if (view->scroll > 0.5f)
     {
-        retro_ui_layer_rect(margin, content_y, arrow_width, card, with_alpha(palette->panel_dark, LIT_ALPHA));
+        retro_ui_layer_rect(margin, content_y, arrow_width, card, retro_ui_color_set_alpha(palette->panel_dark, LIT_ALPHA));
         retro_ui_layer_text(margin + 3.0f * block, arrow_y, PIXEL_FONT_UTF8_ARROW_LEFT, palette->text_highlight);
     }
     if (view->scroll < max_scroll - 0.5f)
     {
         float arrow_x = margin + inner_width - arrow_width;
-        retro_ui_layer_rect(arrow_x, content_y, arrow_width, card, with_alpha(palette->panel_dark, LIT_ALPHA));
+        retro_ui_layer_rect(arrow_x, content_y, arrow_width, card, retro_ui_color_set_alpha(palette->panel_dark, LIT_ALPHA));
         retro_ui_layer_text(arrow_x + 3.0f * block, arrow_y, PIXEL_FONT_UTF8_ARROW_RIGHT, palette->text_highlight);
     }
     retro_ui_end_layer();

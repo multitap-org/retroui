@@ -219,13 +219,6 @@ float pad_size(const PadFrame* frame, float dp)
     return dp * frame->dp_scale;
 }
 
-uint32_t pad_fade(uint32_t argb, float alpha)
-{
-    float a = static_cast<float>(argb >> 24) * alpha;
-    uint32_t faded = static_cast<uint32_t>(a < 0.0f ? 0.0f : (a > 255.0f ? 255.0f : a));
-    return (argb & 0x00FFFFFFu) | (faded << 24);
-}
-
 void pad_block(const TouchUi* ui, const PadFrame* frame, float x, float y, float width, float height, uint32_t argb)
 {
     touch_ui_rect(ui, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height), argb);
@@ -256,7 +249,7 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
     uint32_t face = overlay ? palette->button_face : palette->field_face;
     uint32_t text = overlay ? palette->text_highlight : palette->field_text;
     uint32_t nub = overlay ? palette->field_face : palette->button_face;
-    touch_ui_rect(ui, x, y, width, height, pad_fade(held ? PART_LIT : face, alpha));
+    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? PART_LIT : face, alpha));
     if (part->kind == PadPartKind::stick)
     {
         // The nub: the body's color, 40% of the block, in the middle at
@@ -266,13 +259,13 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
         float travel_x = (width - nub_width) * 0.5f;
         float travel_y = (height - nub_height) * 0.5f;
         touch_ui_rect(ui, std::floor(x + travel_x + stick_x * travel_x), std::floor(y + travel_y + stick_y * travel_y), nub_width,
-                      nub_height, pad_fade(nub, alpha));
+                      nub_height, retro_ui_color_with_alpha(nub, alpha));
     }
     if (part->label[0] != '\0')
     {
         float text_width = touch_ui_text_width(ui, part->label, part->size);
         touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, part->size),
-                      part->label, pad_fade(held ? PART_LIT_TEXT : text, alpha), part->size);
+                      part->label, retro_ui_color_with_alpha(held ? PART_LIT_TEXT : text, alpha), part->size);
     }
 }
 
