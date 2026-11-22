@@ -394,6 +394,76 @@ static const TouchFinger* holding_finger(const TouchUi* ui, const PadPart* part,
     return nullptr;
 }
 
+// tan(22.5 degrees): within it of an axis, a finger presses that one
+// direction; between, the diagonal (two).
+constexpr float DPAD_SECTOR_SLOPE = 0.41421356f;
+
+static uint32_t direction_bit(RetroPadButton button)
+{
+    return 1u << static_cast<uint32_t>(button);
+}
+
+uint32_t pad_dpad_directions(float dx, float dy)
+{
+    if (dx * dx + dy * dy < PAD_DPAD_DEADZONE * PAD_DPAD_DEADZONE)
+    {
+        return 0;
+    }
+    float across = std::fabs(dx);
+    float down = std::fabs(dy);
+    uint32_t horizontal = dx < 0.0f ? direction_bit(RetroPadButton::left) : direction_bit(RetroPadButton::right);
+    uint32_t vertical = dy < 0.0f ? direction_bit(RetroPadButton::up) : direction_bit(RetroPadButton::down);
+    if (down <= across * DPAD_SECTOR_SLOPE)
+    {
+        return horizontal;
+    }
+    if (across <= down * DPAD_SECTOR_SLOPE)
+    {
+        return vertical;
+    }
+    return horizontal | vertical;
+}
+
+// The directions the fingers press on the d-pad: every free finger inside its
+// square (the group's box: the arrows and the corners between them).
+static uint32_t dpad_held(const TouchUi* ui, const PadFrame* frame, const PadLayout* layout)
+{
+    TouchFingers* fingers = ui->fingers;
+    if (fingers == nullptr || !pad_layout_has_group(layout, PadGroup::dpad))
+    {
+        return 0;
+    }
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    pad_layout_group_rect(layout, PadGroup::dpad, &x, &y, &width, &height);
+    float screen_x = pad_x(frame, x);
+    float screen_y = pad_y(frame, y);
+    float half_width = pad_size(frame, width) * 0.5f;
+    float half_height = pad_size(frame, height) * 0.5f;
+    if (half_width <= 0.0f || half_height <= 0.0f)
+    {
+        return 0;
+    }
+    float scale = static_cast<float>(ui->scale);
+    uint32_t directions = 0;
+    for (int32_t i = 0; i < fingers->count; i++)
+    {
+        const TouchFinger* finger = &fingers->fingers[i];
+        float finger_x = finger->x / scale;
+        float finger_y = finger->y / scale;
+        if (finger->owner != nullptr || !inside(finger_x, finger_y, screen_x, screen_y, half_width * 2.0f, half_height * 2.0f))
+        {
+            continue;
+        }
+        float dx = (finger_x - (screen_x + half_width)) / half_width;
+        float dy = (finger_y - (screen_y + half_height)) / half_height;
+        directions |= pad_dpad_directions(dx, dy);
+    }
+    return directions;
+}
+
 // A stick held on a RetroPad: pushed past a small dead zone, or clicked.
 constexpr float LIT_STICK_DEADZONE = 0.25f;
 
@@ -477,6 +547,7 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
     layout->action_pressed = false;
     layout->menu_held = false;
     layout->menu_pressed = false;
+    uint32_t dpad = dpad_held(ui, frame, layout);
     for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
     {
         PadPart shown;   // the action / menu button with the frontend's label
@@ -494,32 +565,42 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         float screen_y = pad_y(frame, y);
         float screen_width = pad_size(frame, width);
         float screen_height = pad_size(frame, height);
-        const TouchFinger* finger = holding_finger(ui, part, screen_x, screen_y, screen_width, screen_height);
+        // The d-pad's parts are held from its area (dpad_held; its middle
+        // presses nothing), every other part by a finger on it.
+        const TouchFinger* finger = nullptr;
+        bool touched = false;
+        RetroPadButton button = RetroPadButton::b;
+        bool is_button = retropad_button_for_part(part->id, &button);
+        if (part->group == PadGroup::dpad)
+        {
+            touched = is_button && (dpad & direction_bit(button)) != 0;
+        }
+        else
+        {
+            finger = holding_finger(ui, part, screen_x, screen_y, screen_width, screen_height);
+            touched = finger != nullptr;
+        }
         float stick_x = 0.0f;
         float stick_y = 0.0f;
         bool on_gamepad = lit_part(ui, part, &stick_x, &stick_y);
-        bool held = finger != nullptr || on_gamepad;
-        if (finger != nullptr && part->kind == PadPartKind::action)
+        bool held = touched || on_gamepad;
+        if (touched && part->kind == PadPartKind::action)
         {
             layout->action_held = true;
             layout->action_pressed = !action_was_held;
         }
-        if (finger != nullptr && part->kind == PadPartKind::menu)
+        if (touched && part->kind == PadPartKind::menu)
         {
             layout->menu_held = true;
             layout->menu_pressed = !menu_was_held;
         }
-        if (finger != nullptr && ui->pad != nullptr)
+        if (touched && is_button && ui->pad != nullptr)
         {
             // What the pad gives: the parts fingers hold (a real gamepad's
             // presses are added from the gamepad itself).
-            RetroPadButton button = RetroPadButton::b;
-            if (retropad_button_for_part(part->id, &button))
-            {
-                retropad_press(ui->pad, button);
-            }
+            retropad_press(ui->pad, button);
         }
-        if (finger != nullptr)
+        if (touched)
         {
             uint32_t bit = 1u << static_cast<uint32_t>(i);
             held_now |= bit;
@@ -527,7 +608,7 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
             {
                 ui->fingers->presses++;
             }
-            if (part->kind == PadPartKind::stick)
+            if (part->kind == PadPartKind::stick && finger != nullptr)
             {
                 float scale = static_cast<float>(ui->scale);
                 stick_x = stick_axis(finger->x / scale, screen_x, screen_width);

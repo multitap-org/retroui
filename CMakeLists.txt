@@ -52,6 +52,12 @@ if(MULTITAP_BUILD_TESTS)
     multitap_set_project_flags(retroui_pad_placement_test)
     add_test(NAME retroui_pad_placement COMMAND retroui_pad_placement_test)
 
+    # Every layout's parts apart and on screen; the d-pad's eight directions.
+    add_executable(retroui_pad_layouts_test tests/pad_layouts_test.cpp)
+    target_link_libraries(retroui_pad_layouts_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_pad_layouts_test)
+    add_test(NAME retroui_pad_layouts COMMAND retroui_pad_layouts_test)
+
     # The block for a window, either way up.
     add_executable(retroui_scale_test tests/scale_test.cpp)
     target_link_libraries(retroui_scale_test PRIVATE retroui)
