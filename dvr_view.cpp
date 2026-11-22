@@ -30,6 +30,13 @@ constexpr uint32_t CARD_ALPHA = 0xB0000000u;
 constexpr uint32_t DIM_ALPHA  = 0x9E000000u;   // a thumbnail that isn't selected (62%)
 constexpr uint32_t AFTER_ALPHA = 0x66000000u;  // one after the cursor (40%)
 
+// The bounce at an end of the history: five steps, each with its border
+// colour and how far the thumbnail is pushed toward that end (retro pixels).
+constexpr uint32_t BUMP_STEPS = 5;
+constexpr uint32_t BUMP_RED   = 0xFF4F5AFFu;
+constexpr uint32_t BUMP_WHITE = 0xFFFFFFFFu;
+constexpr float    BUMP_PUSH[BUMP_STEPS] = {3.0f, 2.0f, -1.0f, 0.0f, 0.0f};
+
 
 static bool clicked_in(float x, float y, float width, float height)
 {
@@ -145,14 +152,21 @@ static void draw_thumbs(const DvrView* view, float top, float width, float block
         float h = big ? big_h : small_h;
         float y = big ? big_y : small_y;
         centres[i] = x + std::floor(w * 0.5f);
+        uint32_t frame_color = palette->text_highlight;
+        if (big && view->bump_direction != 0 && view->bump_seconds >= 0.0f && view->bump_seconds < DVR_VIEW_BUMP_SECONDS)
+        {
+            uint32_t step = static_cast<uint32_t>(view->bump_seconds / DVR_VIEW_BUMP_SECONDS * static_cast<float>(BUMP_STEPS));
+            step = step < BUMP_STEPS ? step : BUMP_STEPS - 1;
+            x += BUMP_PUSH[step] * static_cast<float>(view->bump_direction) * block;
+            frame_color = step == 4 ? palette->text_highlight : step % 2 == 0 ? BUMP_RED : BUMP_WHITE;
+        }
         if (x + w < 0.0f || x > width)
         {
             continue;
         }
         if (big)
         {
-            retro_ui_layer_rect(x - 2.0f * block, y - 2.0f * block, w + 4.0f * block, h + 4.0f * block,
-                                palette->text_highlight);
+            retro_ui_layer_rect(x - 2.0f * block, y - 2.0f * block, w + 4.0f * block, h + 4.0f * block, frame_color);
         }
         else
         {

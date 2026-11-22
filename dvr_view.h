@@ -12,6 +12,9 @@
 //   STRIP    thumbnails along the bottom, the selected one bigger in the
 //            middle; the ones after the cursor (kept until PLAY FROM HERE)
 //            darker. A track under them with the cursor between two.
+//            A move that hits either end of the history bounces the selected
+//            one toward that end, its border blinking red and white
+//            (Andrés: "bounce it a bit").
 //   HINTS    gamepad: key chips and what they do. Touch: big buttons (the
 //            on-screen pad is hidden while the DVR is open).
 //
@@ -78,7 +81,11 @@ struct DvrView
     uint32_t     hint_count = 0;
     bool         touch    = false;  // big buttons, no time under every thumbnail
     bool         exit_focused = false;   // UP went to the exit button (ACCEPT presses it)
+    int32_t      bump_direction = 0;      // a move hit the end: -1 the oldest, 1 the newest (0: none)
+    float        bump_seconds   = 0.0f;   // since it did (the bounce lasts DVR_VIEW_BUMP_SECONDS)
 };
+
+constexpr float DVR_VIEW_BUMP_SECONDS = 0.45f;
 
 // What the mouse / a finger did this frame.
 struct DvrViewInput
