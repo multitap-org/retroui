@@ -865,7 +865,12 @@ bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t
 bool retro_ui_begin_list(const char* id, float width, float height)
 {
     // ImGui's border off; the padding a bordered child would have kept.
-    return ImGui::BeginChild(id, ImVec2(width, height), ImGuiChildFlags_AlwaysUseWindowPadding);
+    // NavFlattened: the d-pad crosses the list's edge to the window's other
+    // widgets. Without it a gamepad that entered the list could never leave
+    // it (a move past its edge stays inside, and a B tap only reaches ImGui
+    // while a popup is open): seen in TOOLS > CORES on the SHIELD.
+    return ImGui::BeginChild(id, ImVec2(width, height),
+                             ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened);
 }
 
 void retro_ui_end_list()
