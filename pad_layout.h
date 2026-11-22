@@ -11,9 +11,11 @@
 // (for overlays over the game). Saved per layout in settings/layouts.cfg.
 //
 // Multi-touch (touch_fingers.h): a button is held while any free finger is
-// on it (sliding from one to the next works, like across the d-pad); a stick
-// belongs to the finger that went down on it until that finger is lifted,
-// and that finger presses nothing else.
+// on it (sliding from one to the next works); a stick belongs to the finger
+// that went down on it until that finger is lifted, and that finger presses
+// nothing else. The d-pad is one area, its whole square, not five buttons: a
+// finger presses the direction it sits in from the middle, two at once in the
+// corners (pad_dpad_directions), so a thumb rolls round it without lifting.
 
 #include <cstdint>
 
@@ -110,6 +112,21 @@ struct PadLayout
 };
 
 constexpr int32_t PAD_MAX_PARTS = 32;   // `held`'s bits
+
+// The d-pad's directions under a finger at (dx, dy) from its middle, in
+// halves of its size (-1..1 at its edges, y down): a bit each for
+// RetroPadButton up / down / left / right. Eight 45-degree sectors, so the
+// diagonals press two; nothing within PAD_DPAD_DEADZONE of the middle (a
+// resting thumb).
+constexpr float PAD_DPAD_DEADZONE = 0.15f;
+uint32_t pad_dpad_directions(float dx, float dy);
+
+// A style with only two face buttons (NES / Game Boy: A and B, no X / Y):
+// a finger between them presses both, as on the web page's pad
+// (piccolo-pad.js): within PAD_PAIR_REACH x the distance between their
+// middles of both middles. Elsewhere each button is its own.
+constexpr float PAD_PAIR_REACH = 0.62f;
+bool pad_pair_zone(float x, float y, float a_x, float a_y, float b_x, float b_y);
 
 constexpr float PAD_SCALE_MIN = 0.5f;
 constexpr float PAD_SCALE_MAX = 2.0f;

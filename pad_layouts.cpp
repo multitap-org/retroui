@@ -79,7 +79,8 @@ static const PadPart LANDSCAPE_PAD[] = {
 // REMOTE PLAY, portrait, under the picture (390 x 420 dp: the controls of the
 // mockup's lower half, shrunk to whatever room the picture leaves). The whole
 // RetroPad, as sideways (Andrés, 2026-11-21: every element in every
-// orientation for now): L2 / R2 and the sticks too. The menu
+// orientation for now): L2 / R2 and the sticks too. The face buttons a
+// diamond of four the same size, level with the d-pad and under R1. The menu
 // and action buttons (piccolo: MENU, QUICK) beside SELECT / START, shown
 // only when the frontend labels them: without a keyboard they're the way to
 // piccolo's menus.
@@ -93,10 +94,10 @@ static const PadPart REMOTE_BELOW[] = {
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 70, 192, 52, 52, BUTTON, NORMAL, DPAD},
     {"##left", PIXEL_FONT_UTF8_ARROW_LEFT, 18, 140, 52, 52, BUTTON, NORMAL, DPAD},
     {"##right", PIXEL_FONT_UTF8_ARROW_RIGHT, 122, 140, 52, 52, BUTTON, NORMAL, DPAD},
-    {"##y", "Y", 214, 82, 52, 52, BUTTON, BIG, FACE},
-    {"##x", "X", 314, 62, 52, 52, BUTTON, BIG, FACE},
-    {"##b", "B", 214, 166, 68, 68, BUTTON, BIG, FACE},
-    {"##a", "A", 298, 118, 68, 68, BUTTON, BIG, FACE},
+    {"##x", "X", 266, 82, 56, 56, BUTTON, BIG, FACE},
+    {"##y", "Y", 210, 138, 56, 56, BUTTON, BIG, FACE},
+    {"##a", "A", 322, 138, 56, 56, BUTTON, BIG, FACE},
+    {"##b", "B", 266, 194, 56, 56, BUTTON, BIG, FACE},
     {"##menu", "MENU", 8, 262, 88, 32, MENU, NORMAL, CENTER},
     {"##select", "SELECT", 104, 262, 80, 32, BUTTON, NORMAL, CENTER},
     {"##start", "START", 196, 262, 80, 32, BUTTON, NORMAL, CENTER},
@@ -106,12 +107,13 @@ static const PadPart REMOTE_BELOW[] = {
 };
 
 // REMOTE PLAY, portrait, over a tall picture (390 x 844 dp): the controls
-// over its lower half (the DS's bottom screen), small and see-through.
+// over its lower half (the DS's bottom screen), small and see-through; the
+// shoulders just over the d-pad and the face buttons, in the thumbs' reach.
 static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
-    {"##l2", "L2", 12, 410, 96, 36, BUTTON, NORMAL, LSH},
-    {"##l", "L1", 12, 452, 96, 36, BUTTON, NORMAL, LSH},
-    {"##r2", "R2", 282, 410, 96, 36, BUTTON, NORMAL, RSH},
-    {"##r", "R1", 282, 452, 96, 36, BUTTON, NORMAL, RSH},
+    {"##l2", "L2", 12, 484, 96, 36, BUTTON, NORMAL, LSH},
+    {"##l", "L1", 12, 526, 96, 36, BUTTON, NORMAL, LSH},
+    {"##r2", "R2", 282, 484, 96, 36, BUTTON, NORMAL, RSH},
+    {"##r", "R1", 282, 526, 96, 36, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 64, 620, 46, 46, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 64, 574, 46, 46, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 64, 666, 46, 46, BUTTON, NORMAL, DPAD},
