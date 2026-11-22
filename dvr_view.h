@@ -5,13 +5,18 @@
 // through, chips with a darker lip, no bevels). Draw only: the frontend
 // moves through its history, makes the thumbnails and fills this in.
 //
-//   HEADER   the title chip (◀◀ DVR, ▶ WATCHING), the mode, how much is
-//            kept, where the cursor is, and the exit button at the right
-//            (BACK TO NOW): UP focuses it, the only place the DVR navigates
-//            to; everything else is a button acting at once.
-//   STRIP    thumbnails along the bottom, the selected one bigger in the
-//            middle; the ones after the cursor (kept until PLAY FROM HERE)
-//            darker. A track under them with the cursor between two.
+//   HEADER   the title chip (◀◀ DVR, ▶ WATCHING), the mode, which lane
+//            (only on the kept one), how much is kept, where the cursor is,
+//            and the exit button at the right (BACK TO NOW, its own
+//            button: clicked, or the frontend's back key). Every key is a
+//            button acting at once; nothing is focused.
+//   STRIP    thumbnails along the bottom (the cursor's lane), the selected
+//            one bigger in the middle; the ones after the cursor darker. A
+//            track under them with the cursor between two. Two lanes
+//            (Andrés, 2026-11-22): the recorded lane is the track as ever,
+//            the kept lane a second line above it, from where they part to
+//            where it ends; the cursor sits on its lane's line (UP / DOWN in
+//            the frontend move it between them).
 //            A move that hits either end of the history bounces the selected
 //            one toward that end, its border blinking red and white
 //            (Andrés: "bounce it a bit").
@@ -50,6 +55,7 @@ enum class DvrViewAction : uint8_t
     play_here,     // B: play on from the cursor
     watch,         // Y: play the recording / pause it
     back_to_now,   // A: back to the present
+    other_lane,    // UP / DOWN: to the other lane
 };
 
 struct DvrViewHint
@@ -67,6 +73,7 @@ struct DvrViewText
     const char* kept    = "";   // "4:12 KEPT" ("" = not shown)
     const char* readout = "";   // where the cursor is: "-0:27.8"
     const char* exit    = "";   // the exit button: "BACK TO NOW"
+    const char* lane    = "";   // which lane, after the mode ("KEPT LANE"; "" = not shown)
 };
 
 struct DvrView
@@ -80,9 +87,17 @@ struct DvrView
     DvrViewHint  hints[DVR_VIEW_MAX_HINTS];
     uint32_t     hint_count = 0;
     bool         touch    = false;  // big buttons, no time under every thumbnail
-    bool         exit_focused = false;   // UP went to the exit button (ACCEPT presses it)
     int32_t      bump_direction = 0;      // a move hit the end: -1 the oldest, 1 the newest (0: none)
     float        bump_seconds   = 0.0f;   // since it did (the bounce lasts DVR_VIEW_BUMP_SECONDS)
+
+    // Two lanes. Places along the track are in thumbnails: the index of the
+    // thumbnail at or before it plus the way to the next (0..1); before the
+    // first or after the last they go on at the thumbnails' spacing.
+    bool  lanes     = false;   // a kept lane (the track's height grows by a line)
+    bool  on_upper  = false;   // the cursor is on the upper lane (the kept one)
+    float fork_at   = 0.0f;    // where the lanes part
+    float upper_end = 0.0f;    // where the upper (kept) lane ends
+    float lower_end = 0.0f;    // where the lower (recorded) lane ends
 };
 
 constexpr float DVR_VIEW_BUMP_SECONDS = 0.45f;

@@ -18,6 +18,7 @@ constexpr float HINTS       = 15.0f;   // the hints' card
 constexpr float LINE        = 7.0f;    // a line of the pixel font
 constexpr float LABEL       = 9.0f;    // a thumbnail's time under it
 constexpr float TRACK       = 6.0f;
+constexpr float LANE_GAP    = 6.0f;    // the upper lane's line above the lower one
 constexpr float THUMB_GAP   = 6.0f;
 // Thumbnail heights (their widths follow the pictures' aspect).
 constexpr float THUMB       = 56.0f;
@@ -72,10 +73,14 @@ float dvr_view_height(const DvrView* view, int32_t scale)
 {
     float rows = GAP + HEADER + GAP + thumb_height(view, true) + GAP + LABEL;
     rows += view->touch ? GAP + BUTTON + GAP : TRACK + GAP + HINTS + GAP;
+    if (view->lanes && !view->touch)
+    {
+        rows += LANE_GAP;
+    }
     return rows * static_cast<float>(scale > 0 ? scale : 1);
 }
 
-static void draw_header(const DvrView* view, const DvrViewText* text, float top, float width, float block,
+static void draw_header(const DvrViewText* text, float top, float width, float block,
                         DvrViewInput* input)
 {
     const RetroUiPalette* palette = retro_ui_palette();
@@ -86,20 +91,20 @@ static void draw_header(const DvrView* view, const DvrViewText* text, float top,
     x += draw_chip(x, y + block, CHIP * block, CHIP_PAD, text->title, palette->highlight, palette->text_highlight, block);
     float text_y = y + 2.0f * block;
     retro_ui_layer_text(x + 6.0f * block, text_y, text->mode, palette->text);
+    if (text->lane[0] != '\0')
+    {
+        float lane_x = x + 6.0f * block + std::floor(retro_ui_layer_text_width(text->mode)) + 10.0f * block;
+        retro_ui_layer_text(lane_x, text_y, text->lane, palette->section);
+    }
 
-    // The exit button at the right; focused (UP): lit, with a frame.
+    // The exit button at the right.
     float right = width - (MARGIN + 2.0f) * block;
     if (text->exit[0] != '\0')
     {
         float exit_w = std::floor(retro_ui_layer_text_width(text->exit)) + 2.0f * CHIP_PAD * block;
         float exit_x = right - exit_w;
-        if (view->exit_focused)
-        {
-            retro_ui_layer_rect(exit_x - block, y, exit_w + 2.0f * block, HEADER * block, palette->text_highlight);
-        }
-        draw_chip(exit_x, y + block, CHIP * block, CHIP_PAD, text->exit,
-                  view->exit_focused ? palette->highlight : palette->button_face,
-                  view->exit_focused ? palette->text_highlight : palette->button_text, block);
+        draw_chip(exit_x, y + block, CHIP * block, CHIP_PAD, text->exit, palette->button_face, palette->button_text,
+                  block);
         if (clicked_in(exit_x, y + block, exit_w, CHIP * block))
         {
             input->action = DvrViewAction::back_to_now;
@@ -122,7 +127,7 @@ static void draw_header(const DvrView* view, const DvrViewText* text, float top,
 // The thumbnails, the selected one centred; returns each one's centre (for
 // the track) through `centres`.
 static void draw_thumbs(const DvrView* view, float top, float width, float block, float* centres, float* label_y,
-                        DvrViewInput* input)
+                        float* spacing, DvrViewInput* input)
 {
     const RetroUiPalette* palette = retro_ui_palette();
     float small_h = thumb_height(view, false) * block;
@@ -130,6 +135,7 @@ static void draw_thumbs(const DvrView* view, float top, float width, float block
     float small_w = std::floor(thumb_height(view, false) * view->aspect) * block;
     float big_w = std::floor(thumb_height(view, true) * view->aspect) * block;
     float gap = THUMB_GAP * block;
+    *spacing = small_w + gap;
     float big_x = std::floor((width - big_w) * 0.5f / block) * block;
     float big_y = top;
     float small_y = top + std::floor((big_h - small_h) * 0.5f / block) * block;
@@ -202,14 +208,62 @@ static void draw_thumbs(const DvrView* view, float top, float width, float block
     }
 }
 
-static void draw_track(const DvrView* view, float y, float width, float block, const float* centres)
+// A place along the track (in thumbnails, DvrView's lanes) to a window x:
+// between two centres, or past the ends at the thumbnails' spacing.
+static float track_x(const float* centres, uint32_t count, float spacing, float at)
+{
+    if (count == 0)
+    {
+        return 0.0f;
+    }
+    if (at <= 0.0f || count == 1)
+    {
+        return centres[0] + at * spacing;
+    }
+    float last = static_cast<float>(count - 1);
+    if (at >= last)
+    {
+        return centres[count - 1] + (at - last) * spacing;
+    }
+    uint32_t i = static_cast<uint32_t>(at);
+    return centres[i] + (centres[i + 1] - centres[i]) * (at - static_cast<float>(i));
+}
+
+static float clamp_x(float x, float width)
+{
+    return x < 0.0f ? 0.0f : (x > width ? width : x);
+}
+
+// The track. One lane: a line across. Two: the lower (recorded) one up to
+// its end, the upper (kept) one from where they part to its end, joined
+// there; the cursor's line lit. `y` is the lower line's.
+static void draw_track(const DvrView* view, float y, float width, float block, const float* centres, float spacing)
 {
     const RetroUiPalette* palette = retro_ui_palette();
-    retro_ui_layer_rect(0.0f, y, width, block, palette->button_face);
     uint32_t count = view->count < DVR_VIEW_MAX_THUMBS ? view->count : DVR_VIEW_MAX_THUMBS;
+    float upper_y = y - LANE_GAP * block;
+    if (view->lanes && count > 0)
+    {
+        float fork_x  = std::floor(clamp_x(track_x(centres, count, spacing, view->fork_at), width) / block) * block;
+        float upper_x = clamp_x(track_x(centres, count, spacing, view->upper_end), width);
+        float lower_x = clamp_x(track_x(centres, count, spacing, view->lower_end), width);
+        uint32_t lit = palette->section;
+        uint32_t dim = palette->panel_light;
+        retro_ui_layer_rect(0.0f, y, fork_x, block, palette->button_face);   // both lanes' past
+        retro_ui_layer_rect(fork_x, y, lower_x - fork_x, block, view->on_upper ? dim : lit);
+        retro_ui_layer_rect(fork_x, upper_y, upper_x - fork_x, block, view->on_upper ? lit : dim);
+        retro_ui_layer_rect(fork_x, upper_y, block, y - upper_y + block, view->on_upper ? lit : dim);   // where they part
+        retro_ui_layer_rect(lower_x - block, y - block, block, 3.0f * block, view->on_upper ? dim : lit);   // their ends
+        retro_ui_layer_rect(upper_x - block, upper_y - block, block, 3.0f * block, view->on_upper ? lit : dim);
+    }
+    else
+    {
+        retro_ui_layer_rect(0.0f, y, width, block, palette->button_face);
+    }
+    float cursor_y = view->lanes && view->on_upper ? upper_y : y;
     for (uint32_t i = 0; i < count; i++)
     {
-        retro_ui_layer_rect(centres[i], y - 2.0f * block, block, 5.0f * block, palette->panel_light);
+        retro_ui_layer_rect(centres[i], cursor_y - 2.0f * block, block, 5.0f * block, palette->panel_light);
     }
     if (count == 0)
     {
@@ -220,10 +274,10 @@ static void draw_track(const DvrView* view, float y, float width, float block, c
     {
         x += std::floor((centres[view->selected + 1] - x) * view->between / block) * block;
     }
-    retro_ui_layer_rect(x - block, y - 4.0f * block, 3.0f * block, 9.0f * block, palette->section);
+    retro_ui_layer_rect(x - block, cursor_y - 4.0f * block, 3.0f * block, 9.0f * block, palette->section);
     if (view->playing)
     {
-        retro_ui_layer_text(x - 2.0f * block, y - 13.0f * block, "\xE2\x96\xB6", palette->section);   // ▶
+        retro_ui_layer_text(x - 2.0f * block, cursor_y - 13.0f * block, "\xE2\x96\xB6", palette->section);   // ▶
     }
 }
 
@@ -294,11 +348,12 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
     float height = io.DisplaySize.y;
     float top = height - dvr_view_height(view, scale);
     float centres[DVR_VIEW_MAX_THUMBS] = {};
+    float spacing = 0.0f;
 
     retro_ui_begin_layer("##dvr_view", pixel_font, scale, true);
-    draw_header(view, text, top, width, block, input);
+    draw_header(text, top, width, block, input);
     float label_y = 0.0f;
-    draw_thumbs(view, top + (GAP + HEADER + GAP) * block, width, block, centres, &label_y, input);
+    draw_thumbs(view, top + (GAP + HEADER + GAP) * block, width, block, centres, &label_y, &spacing, input);
     float below = label_y + LABEL * block;
     if (view->touch)
     {
@@ -306,8 +361,9 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
     }
     else
     {
-        draw_track(view, below + 2.0f * block, width, block, centres);
-        draw_hints(view, below + (TRACK + GAP) * block, width, block, input);
+        float lanes = view->lanes ? LANE_GAP : 0.0f;   // the upper lane's line takes the room above
+        draw_track(view, below + (2.0f + lanes) * block, width, block, centres, spacing);
+        draw_hints(view, below + (TRACK + lanes + GAP) * block, width, block, input);
     }
     retro_ui_end_layer();
 }
