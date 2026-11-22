@@ -398,6 +398,7 @@ static const TouchFinger* holding_finger(const TouchUi* ui, const PadPart* part,
 // direction; between, the diagonal (two).
 constexpr float DPAD_SECTOR_SLOPE = 0.41421356f;
 
+// A RetroPad button's bit (directions, A / B...).
 static uint32_t direction_bit(RetroPadButton button)
 {
     return 1u << static_cast<uint32_t>(button);
@@ -462,6 +463,86 @@ static uint32_t dpad_held(const TouchUi* ui, const PadFrame* frame, const PadLay
         directions |= pad_dpad_directions(dx, dy);
     }
     return directions;
+}
+
+bool pad_pair_zone(float x, float y, float a_x, float a_y, float b_x, float b_y)
+{
+    float apart_x = b_x - a_x;
+    float apart_y = b_y - a_y;
+    float reach = PAD_PAIR_REACH * PAD_PAIR_REACH * (apart_x * apart_x + apart_y * apart_y);
+    float to_a = (x - a_x) * (x - a_x) + (y - a_y) * (y - a_y);
+    float to_b = (x - b_x) * (x - b_x) + (y - b_y) * (y - b_y);
+    return to_a <= reach && to_b <= reach;
+}
+
+// Whether the layout's style has A and B and no other face button (NES /
+// Game Boy): only then does the space between them press both.
+static bool two_face_buttons(const PadLayout* layout)
+{
+    const PadStyle* style = layout->style;
+    if (style == nullptr || style->six_face)
+    {
+        return false;
+    }
+    return style->labels[static_cast<int32_t>(RetroPadButton::a)] != nullptr &&
+           style->labels[static_cast<int32_t>(RetroPadButton::b)] != nullptr &&
+           style->labels[static_cast<int32_t>(RetroPadButton::x)] == nullptr &&
+           style->labels[static_cast<int32_t>(RetroPadButton::y)] == nullptr;
+}
+
+// A part's middle on the screen (retro pixels).
+static void part_middle(const PadFrame* frame, const PadLayout* layout, int32_t part, float* x, float* y)
+{
+    float left = 0.0f;
+    float top = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    pad_layout_part_rect(layout, part, &left, &top, &width, &height);
+    *x = pad_x(frame, left + width * 0.5f);
+    *y = pad_y(frame, top + height * 0.5f);
+}
+
+// A and B (their bits) when a free finger is between them on a two-button
+// style (pad_pair_zone), else 0.
+static uint32_t pair_held(const TouchUi* ui, const PadFrame* frame, const PadLayout* layout)
+{
+    TouchFingers* fingers = ui->fingers;
+    if (fingers == nullptr || !two_face_buttons(layout))
+    {
+        return 0;
+    }
+    int32_t a_part = -1;
+    int32_t b_part = -1;
+    for (int32_t i = 0; i < layout->count; i++)
+    {
+        RetroPadButton button = RetroPadButton::up;
+        if (layout->parts[i].group != PadGroup::face || !retropad_button_for_part(layout->parts[i].id, &button))
+        {
+            continue;
+        }
+        a_part = button == RetroPadButton::a ? i : a_part;
+        b_part = button == RetroPadButton::b ? i : b_part;
+    }
+    if (a_part < 0 || b_part < 0)
+    {
+        return 0;
+    }
+    float a_x = 0.0f;
+    float a_y = 0.0f;
+    float b_x = 0.0f;
+    float b_y = 0.0f;
+    part_middle(frame, layout, a_part, &a_x, &a_y);
+    part_middle(frame, layout, b_part, &b_x, &b_y);
+    float scale = static_cast<float>(ui->scale);
+    for (int32_t i = 0; i < fingers->count; i++)
+    {
+        const TouchFinger* finger = &fingers->fingers[i];
+        if (finger->owner == nullptr && pad_pair_zone(finger->x / scale, finger->y / scale, a_x, a_y, b_x, b_y))
+        {
+            return direction_bit(RetroPadButton::a) | direction_bit(RetroPadButton::b);
+        }
+    }
+    return 0;
 }
 
 // A stick held on a RetroPad: pushed past a small dead zone, or clicked.
@@ -548,6 +629,7 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
     layout->menu_held = false;
     layout->menu_pressed = false;
     uint32_t dpad = dpad_held(ui, frame, layout);
+    uint32_t pair = pair_held(ui, frame, layout);
     for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
     {
         PadPart shown;   // the action / menu button with the frontend's label
@@ -566,7 +648,8 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         float screen_width = pad_size(frame, width);
         float screen_height = pad_size(frame, height);
         // The d-pad's parts are held from its area (dpad_held; its middle
-        // presses nothing), every other part by a finger on it.
+        // presses nothing), every other part by a finger on it; A and B
+        // also from the space between them on a two-button style (pair_held).
         const TouchFinger* finger = nullptr;
         bool touched = false;
         RetroPadButton button = RetroPadButton::b;
@@ -578,7 +661,7 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         else
         {
             finger = holding_finger(ui, part, screen_x, screen_y, screen_width, screen_height);
-            touched = finger != nullptr;
+            touched = finger != nullptr || (is_button && (pair & direction_bit(button)) != 0);
         }
         float stick_x = 0.0f;
         float stick_y = 0.0f;

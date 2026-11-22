@@ -121,6 +121,13 @@ constexpr int32_t PAD_MAX_PARTS = 32;   // `held`'s bits
 constexpr float PAD_DPAD_DEADZONE = 0.15f;
 uint32_t pad_dpad_directions(float dx, float dy);
 
+// A style with only two face buttons (NES / Game Boy: A and B, no X / Y):
+// a finger between them presses both, as on the web page's pad
+// (piccolo-pad.js): within PAD_PAIR_REACH x the distance between their
+// middles of both middles. Elsewhere each button is its own.
+constexpr float PAD_PAIR_REACH = 0.62f;
+bool pad_pair_zone(float x, float y, float a_x, float a_y, float b_x, float b_y);
+
 constexpr float PAD_SCALE_MIN = 0.5f;
 constexpr float PAD_SCALE_MAX = 2.0f;
 constexpr float PAD_ALPHA_MIN = 0.1f;

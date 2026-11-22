@@ -73,6 +73,18 @@ int main()
     check(pad_dpad_directions(0.8f, -0.45f) == (up | right), "d-pad: past 22.5 degrees, the diagonal");
     check(pad_dpad_directions(0.3f, 0.9f) == down, "d-pad: a little right of down, down only");
 
+    // A and B (the landscape pad's middles, 1.46 widths apart on a slant):
+    // between them both, on either one only that one.
+    float a_x = 780.0f;
+    float a_y = 220.0f;
+    float b_x = 712.0f;
+    float b_y = 284.0f;
+    check(pad_pair_zone(746.0f, 252.0f, a_x, a_y, b_x, b_y), "A+B: the midpoint presses both");
+    check(!pad_pair_zone(a_x, a_y, a_x, a_y, b_x, b_y), "A+B: A's middle presses A only");
+    check(!pad_pair_zone(b_x, b_y, a_x, a_y, b_x, b_y), "A+B: B's middle presses B only");
+    check(pad_pair_zone(766.0f, 273.0f, a_x, a_y, b_x, b_y), "A+B: a little off the line between them, still both");
+    check(!pad_pair_zone(800.0f, 300.0f, a_x, a_y, b_x, b_y), "A+B: well off to the side, neither");
+
     if (g_failures == 0)
     {
         std::printf("pad layouts OK\n");
