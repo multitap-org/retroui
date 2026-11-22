@@ -50,4 +50,10 @@ if(MULTITAP_BUILD_TESTS)
     target_link_libraries(retroui_pad_placement_test PRIVATE retroui)
     multitap_set_project_flags(retroui_pad_placement_test)
     add_test(NAME retroui_pad_placement COMMAND retroui_pad_placement_test)
+
+    # The block for a window, either way up.
+    add_executable(retroui_scale_test tests/scale_test.cpp)
+    target_link_libraries(retroui_scale_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_scale_test)
+    add_test(NAME retroui_scale COMMAND retroui_scale_test)
 endif()

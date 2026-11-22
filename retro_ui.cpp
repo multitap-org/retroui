@@ -1,9 +1,10 @@
 #include "retro_ui.h"
 
+#include <cmath>
 #include <cstdio>
 
 #include "imgui.h"
-#include "imgui_internal.h"   // DC.CurrLineTextBaseOffset: where ImGui puts a widget's text on its line
+#include "imgui_internal.h"   // DC.CurrLineTextBaseOffset (where ImGui puts a widget's text), the window list
 
 #include "pixel_font_imgui.h"
 
@@ -192,17 +193,46 @@ static void push_invisible_text()
 
 int32_t retro_ui_scale_for_window(float window_width, float window_height)
 {
-    // The biggest whole block that still leaves 640 x 360 retro pixels: the
-    // UI is then the same share of any window (and the windows fit: MAP
-    // CONTROLLER is 252 + 24 tall). The display's scale (density) isn't
-    // added on top: a bigger block wouldn't fit, and the window's size is
-    // already in the display's units (points on macOS / Wayland, pixels on
-    // Android and Windows), so the UI has the same share either way. The
-    // SHIELD Portable (1920 x 1080 at 320 dpi) gets 3.
-    int32_t across = static_cast<int32_t>(window_width / 640.0f);
-    int32_t down = static_cast<int32_t>(window_height / 360.0f);
-    int32_t scale = across < down ? across : down;
+    // The biggest whole block that still leaves 640 retro pixels along the
+    // window's long side and 360 along its short side: the UI is then the
+    // same share of any window (and the windows fit: MAP CONTROLLER is
+    // 252 + 24 tall, the biggest ones 360 x 240 and they shrink to the
+    // window). The long side, not the width: an upright phone (1080 x 2340)
+    // asked for 640 across got block 1, one physical pixel per retro pixel;
+    // as 360 across it gets 3, the same as sideways. The display's scale
+    // (density) isn't added on top: a bigger block wouldn't fit, and the
+    // window's size is already in the display's units (points on macOS /
+    // Wayland, CSS pixels in a browser, pixels on Android and Windows), so
+    // the UI has the same share either way. The SHIELD Portable (1920 x 1080
+    // at 320 dpi) gets 3.
+    float long_side = window_width > window_height ? window_width : window_height;
+    float short_side = window_width > window_height ? window_height : window_width;
+    int32_t along = static_cast<int32_t>(long_side / 640.0f);
+    int32_t across = static_cast<int32_t>(short_side / 360.0f);
+    int32_t scale = along < across ? along : across;
     return scale < 1 ? 1 : scale;
+}
+
+void retro_ui_center_windows(void)
+{
+    const ImGuiContext* context = ImGui::GetCurrentContext();
+    const ImGuiIO& io = ImGui::GetIO();
+    for (int32_t i = 0; i < context->Windows.Size; i++)
+    {
+        ImGuiWindow* window = context->Windows[i];
+        // Popups, tooltips and child windows follow what opened them.
+        ImGuiWindowFlags follows = ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip;
+        if (!window->WasActive || (window->Flags & follows) != 0)
+        {
+            continue;
+        }
+        // Sizes that follow the window are set again this frame; the old one
+        // may be bigger than the new window, so it's clamped to it here.
+        float width = window->Size.x < io.DisplaySize.x ? window->Size.x : io.DisplaySize.x;
+        float height = window->Size.y < io.DisplaySize.y ? window->Size.y : io.DisplaySize.y;
+        ImVec2 position(std::floor((io.DisplaySize.x - width) * 0.5f), std::floor((io.DisplaySize.y - height) * 0.5f));
+        ImGui::SetWindowPos(window, position, ImGuiCond_Always);
+    }
 }
 
 // The pixel font at exactly 8 x block pixels per line. ImGui multiplies every

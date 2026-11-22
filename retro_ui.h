@@ -73,8 +73,16 @@ const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme);
 void retro_ui_set_palette(const RetroUiPalette* palette);
 
 // The scale for a window: the biggest whole block that leaves at least
-// 640 x 360 retro pixels, at least 1 (3 on a 1920 x 1080 window).
+// 640 x 360 retro pixels, at least 1 (3 on a 1920 x 1080 window). An upright
+// window needs 360 x 640 instead (3 on a 1080 x 2340 phone, either way up).
 int32_t retro_ui_scale_for_window(float window_width, float window_height);
+
+// The window changed size (a phone turned on its side): every window that's
+// up goes back to the middle. Most windows are centered only when they
+// appear, so after a turn they'd keep the old middle, half off the screen.
+// Call between NewFrame and the first window. Windows placed every frame
+// (menu bar, slide-outs) are placed again by their own code anyway.
+void retro_ui_center_windows(void);
 
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item
