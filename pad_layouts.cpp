@@ -25,9 +25,9 @@ constexpr PadGroup RSTICK = PadGroup::right_stick;
 // header line is the screen's, not the layout's.)
 static const PadPart GAMEPAD_PORTRAIT[] = {
     {"##l2", "L2", 16, 92, 160, 40, BUTTON, NORMAL, LSH},
-    {"##l", "L", 16, 140, 160, 44, BUTTON, NORMAL, LSH},
+    {"##l", "L1", 16, 140, 160, 44, BUTTON, NORMAL, LSH},
     {"##r2", "R2", 214, 92, 160, 40, BUTTON, NORMAL, RSH},
-    {"##r", "R", 214, 140, 160, 44, BUTTON, NORMAL, RSH},
+    {"##r", "R1", 214, 140, 160, 44, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 76, 328, 56, 56, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 76, 272, 56, 56, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 76, 384, 56, 56, BUTTON, NORMAL, DPAD},
@@ -45,17 +45,20 @@ static const PadPart GAMEPAD_PORTRAIT[] = {
 };
 
 // GAMEPAD and REMOTE PLAY, landscape (844 x 390 dp): the same layout for
-// both (Andrés), on the pad's body (GAMEPAD, the body is the whole screen)
-// or see-through over the picture (REMOTE PLAY). The shoulders under the
-// title bar's row (back, the port LEDs, the icons), the d-pad on the left,
-// the face buttons on the right (all four the same size), the sticks inside,
-// the menu button / SELECT / the action button / START in a row at the bottom (those two
-// only when the frontend shows them); piccoletto's port LEDs and ping in the bottom left corner.
+// both and for piccolo's touch pad (Andrés: one experience in both apps),
+// on the pad's body (GAMEPAD, the body is the whole screen) or see-through
+// over the picture (spread to any screen's shape by pad_layouts_place). The
+// whole RetroPad: the shoulders stacked in the top corners (L2 over L1,
+// Andrés 2026-11-21: less height), the d-pad on the left, the face buttons
+// on the right (all four the same size), the sticks inside, the menu button /
+// SELECT / the action button / START in a row at the bottom (menu and action
+// only when the frontend labels them; piccolo: MENU, QUICK; piccoletto:
+// HOTKEY).
 static const PadPart LANDSCAPE_PAD[] = {
-    {"##l2", "L2", 16, 68, 140, 34, BUTTON, NORMAL, LSH},
-    {"##l", "L", 164, 68, 150, 34, BUTTON, NORMAL, LSH},
-    {"##r", "R", 530, 68, 150, 34, BUTTON, NORMAL, RSH},
-    {"##r2", "R2", 688, 68, 140, 34, BUTTON, NORMAL, RSH},
+    {"##l2", "L2", 16, 12, 140, 30, BUTTON, NORMAL, LSH},
+    {"##l", "L1", 16, 46, 140, 34, BUTTON, NORMAL, LSH},
+    {"##r2", "R2", 688, 12, 140, 30, BUTTON, NORMAL, RSH},
+    {"##r", "R1", 688, 46, 140, 34, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 84, 188, 52, 52, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 84, 136, 52, 52, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 84, 240, 52, 52, BUTTON, NORMAL, DPAD},
@@ -81,10 +84,10 @@ static const PadPart LANDSCAPE_PAD[] = {
 // only when the frontend labels them: without a keyboard they're the way to
 // piccolo's menus.
 static const PadPart REMOTE_BELOW[] = {
-    {"##l2", "L2", 16, 12, 80, 36, BUTTON, NORMAL, LSH},
-    {"##l", "L", 104, 12, 80, 36, BUTTON, NORMAL, LSH},
-    {"##r", "R", 206, 12, 80, 36, BUTTON, NORMAL, RSH},
-    {"##r2", "R2", 294, 12, 80, 36, BUTTON, NORMAL, RSH},
+    {"##l2", "L2", 16, 6, 120, 28, BUTTON, NORMAL, LSH},
+    {"##l", "L1", 16, 38, 120, 32, BUTTON, NORMAL, LSH},
+    {"##r2", "R2", 254, 6, 120, 28, BUTTON, NORMAL, RSH},
+    {"##r", "R1", 254, 38, 120, 32, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 70, 140, 52, 52, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 70, 88, 52, 52, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 70, 192, 52, 52, BUTTON, NORMAL, DPAD},
@@ -106,9 +109,9 @@ static const PadPart REMOTE_BELOW[] = {
 // over its lower half (the DS's bottom screen), small and see-through.
 static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
     {"##l2", "L2", 12, 410, 96, 36, BUTTON, NORMAL, LSH},
-    {"##l", "L", 12, 452, 96, 36, BUTTON, NORMAL, LSH},
+    {"##l", "L1", 12, 452, 96, 36, BUTTON, NORMAL, LSH},
     {"##r2", "R2", 282, 410, 96, 36, BUTTON, NORMAL, RSH},
-    {"##r", "R", 282, 452, 96, 36, BUTTON, NORMAL, RSH},
+    {"##r", "R1", 282, 452, 96, 36, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 64, 620, 46, 46, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 64, 574, 46, 46, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 64, 666, 46, 46, BUTTON, NORMAL, DPAD},
@@ -149,9 +152,9 @@ void pad_layouts_init(PadLayouts* layouts)
     define(layouts, PadLayoutId::remote_below, "remote_below", REMOTE_BELOW,
            static_cast<int32_t>(sizeof(REMOTE_BELOW) / sizeof(REMOTE_BELOW[0])), 390.0f, 420.0f, 1.0f);
     define(layouts, PadLayoutId::remote_overlay_portrait, "remote_overlay_portrait", REMOTE_OVERLAY_PORTRAIT,
-           static_cast<int32_t>(sizeof(REMOTE_OVERLAY_PORTRAIT) / sizeof(REMOTE_OVERLAY_PORTRAIT[0])), 390.0f, 844.0f, 0.8f);
+           static_cast<int32_t>(sizeof(REMOTE_OVERLAY_PORTRAIT) / sizeof(REMOTE_OVERLAY_PORTRAIT[0])), 390.0f, 844.0f, 0.2f);
     define(layouts, PadLayoutId::remote_overlay_landscape, "remote_overlay_landscape", LANDSCAPE_PAD,
-           static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 0.8f);
+           static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 0.2f);
 }
 
 PadLayout* pad_layouts_get(PadLayouts* layouts, PadLayoutId id)
@@ -175,16 +178,29 @@ void pad_layouts_save_file(const PadLayouts* layouts, SettingsFile* file)
     }
 }
 
+// An overlay over the whole `width` x `height` screen: the scale that fits
+// its reference, and the room left over spread among its groups (extra_width /
+// extra_height), so a screen of another shape is filled to its edges.
+static PadFrame fill_screen(PadLayout* overlay, float width, float height)
+{
+    PadFrame frame = pad_frame_fit_into(overlay->width, overlay->height, 0.0f, 0.0f, width, height);
+    overlay->extra_width = std::floor(width / frame.dp_scale - overlay->width);
+    overlay->extra_height = std::floor(height / frame.dp_scale - overlay->height);
+    overlay->extra_width = overlay->extra_width > 0.0f ? overlay->extra_width : 0.0f;
+    overlay->extra_height = overlay->extra_height > 0.0f ? overlay->extra_height : 0.0f;
+    frame.x = 0.0f;
+    frame.y = 0.0f;
+    return frame;
+}
+
 PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap)
 {
     PadPlacement placement;
     placement.picture_height = height;
     if (width >= height)
     {
-        const PadLayout* overlay = pad_layouts_get(layouts, PadLayoutId::remote_overlay_landscape);
         placement.id = PadLayoutId::remote_overlay_landscape;
-        placement.frame = pad_frame_fit_into(overlay->width, overlay->height, 0.0f, 0.0f, width, height);
-        placement.frame.y = std::floor(height - overlay->height * placement.frame.dp_scale);
+        placement.frame = fill_screen(pad_layouts_get(layouts, placement.id), width, height);
         return placement;
     }
     // The picture across the top: does the pad still fit under it?
@@ -202,8 +218,7 @@ PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, f
         placement.picture_height = picture;
         return placement;
     }
-    const PadLayout* overlay = pad_layouts_get(layouts, PadLayoutId::remote_overlay_portrait);
     placement.id = PadLayoutId::remote_overlay_portrait;
-    placement.frame = pad_frame_fit_into(overlay->width, overlay->height, 0.0f, 0.0f, width, height);
+    placement.frame = fill_screen(pad_layouts_get(layouts, placement.id), width, height);
     return placement;
 }

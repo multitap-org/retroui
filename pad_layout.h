@@ -83,6 +83,12 @@ struct PadLayout
     const char*    action_label   = nullptr;  // the action button's label, set by the frontend (nullptr: not shown)
     bool           action_held    = false;    // a finger is on the action button (this frame)
     bool           action_pressed = false;    // ...and went down on it this frame
+    // A screen of another shape than the reference (a 16:9 tablet for a
+    // 2.16:1 phone layout): the dp it has beyond width / height, set by
+    // pad_layouts_place. Groups in the right / bottom third move by all of
+    // it, the middle third by half: the pad keeps to the screen's edges.
+    float          extra_width    = 0.0f;
+    float          extra_height   = 0.0f;
     const char*    menu_label     = nullptr;  // the menu button's label, the same way
     bool           menu_held      = false;
     bool           menu_pressed   = false;

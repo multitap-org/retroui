@@ -143,6 +143,17 @@ static void default_group_box(const PadLayout* layout, PadGroup group, float* x0
     }
 }
 
+// How much of the screen's extra room a group at `middle` (of `size`) takes:
+// 0 in the first third, 0.5 in the middle one, 1 in the last.
+static float edge_share(float middle, float size)
+{
+    if (size <= 0.0f || middle < size / 3.0f)
+    {
+        return 0.0f;
+    }
+    return middle > size * 2.0f / 3.0f ? 1.0f : 0.5f;
+}
+
 void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float* y, float* width, float* height)
 {
     const PadPart* p = &layout->parts[part];
@@ -155,8 +166,12 @@ void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float
     // Resized around the group's middle, then moved.
     float middle_x = (x0 + x1) * 0.5f;
     float middle_y = (y0 + y1) * 0.5f;
-    *x = middle_x + edit->dx + (p->x - middle_x) * edit->scale;
-    *y = middle_y + edit->dy + (p->y - middle_y) * edit->scale;
+    // The screen's extra room (extra_width / extra_height): by the group's
+    // place in the reference, left / top third none, middle half, the rest all.
+    float spread_x = edge_share(middle_x, layout->width) * layout->extra_width;
+    float spread_y = edge_share(middle_y, layout->height) * layout->extra_height;
+    *x = middle_x + spread_x + edit->dx + (p->x - middle_x) * edit->scale;
+    *y = middle_y + spread_y + edit->dy + (p->y - middle_y) * edit->scale;
     *width = p->width * edit->scale;
     *height = p->height * edit->scale;
 }
