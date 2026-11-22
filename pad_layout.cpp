@@ -154,15 +154,61 @@ static float edge_share(float middle, float size)
     return middle > size * 2.0f / 3.0f ? 1.0f : 0.5f;
 }
 
+// With a six-button style: the cell (0..5) of a part in the 3 x 2 face, or
+// -1. Below A B C on the RetroPad's Y B A, above X Y Z on L X R.
+static int32_t six_face_cell(const PadLayout* layout, const PadPart* part)
+{
+    if (layout->style == nullptr || !layout->style->six_face)
+    {
+        return -1;
+    }
+    RetroPadButton button = RetroPadButton::b;
+    if (!retropad_button_for_part(part->id, &button))
+    {
+        return -1;
+    }
+    switch (button)
+    {
+        case RetroPadButton::y: return 0;
+        case RetroPadButton::b: return 1;
+        case RetroPadButton::a: return 2;
+        case RetroPadButton::l: return 3;
+        case RetroPadButton::x: return 4;
+        case RetroPadButton::r: return 5;
+        default:                return -1;
+    }
+}
+
 void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float* y, float* width, float* height)
 {
-    const PadPart* p = &layout->parts[part];
-    const PadGroupEdit* edit = &layout->groups[static_cast<int32_t>(p->group)];
+    PadPart cell_part = layout->parts[part];
+    const PadPart* p = &cell_part;
     float x0 = 0.0f;
     float y0 = 0.0f;
     float x1 = 0.0f;
     float y1 = 0.0f;
-    default_group_box(layout, p->group, &x0, &y0, &x1, &y1);
+    int32_t cell = six_face_cell(layout, p);
+    if (cell >= 0)
+    {
+        // Six buttons in the face buttons' box, a 3 x 2 grid, each a square
+        // a little smaller than its cell; they move and resize as the face.
+        cell_part.group = PadGroup::face;
+        default_group_box(layout, PadGroup::face, &x0, &y0, &x1, &y1);
+        float cell_width = (x1 - x0) / 3.0f;
+        float cell_height = (y1 - y0) / 2.0f;
+        float side = (cell_width < cell_height ? cell_width : cell_height) * 0.9f;
+        int32_t column = cell % 3;
+        int32_t row = cell < 3 ? 1 : 0;
+        cell_part.x = x0 + cell_width * static_cast<float>(column) + (cell_width - side) * 0.5f;
+        cell_part.y = y0 + cell_height * static_cast<float>(row) + (cell_height - side) * 0.5f;
+        cell_part.width = side;
+        cell_part.height = side;
+    }
+    else
+    {
+        default_group_box(layout, p->group, &x0, &y0, &x1, &y1);
+    }
+    const PadGroupEdit* edit = &layout->groups[static_cast<int32_t>(p->group)];
     // Resized around the group's middle, then moved.
     float middle_x = (x0 + x1) * 0.5f;
     float middle_y = (y0 + y1) * 0.5f;
@@ -395,6 +441,29 @@ bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown
         }
         shown->label = label;
         return true;
+    }
+    const PadStyle* style = layout->style;
+    if (style == nullptr)
+    {
+        return true;
+    }
+    if (shown->kind == PadPartKind::stick)
+    {
+        return style->sticks;
+    }
+    RetroPadButton button = RetroPadButton::b;
+    if (!retropad_button_for_part(shown->id, &button))
+    {
+        return true;   // the d-pad's middle
+    }
+    const char* label = style->labels[static_cast<int32_t>(button)];
+    if (label == nullptr)
+    {
+        return false;
+    }
+    if (label[0] != '\0')
+    {
+        shown->label = label;
     }
     return true;
 }

@@ -67,6 +67,20 @@ struct PadGroupEdit
     float scale = 1.0f;
 };
 
+// A pad's style (the controller it looks like: SNES, Genesis, DualShock...),
+// set by the frontend; nullptr = the whole RetroPad with its own labels.
+// labels[RetroPadButton]: nullptr = not on this pad (not drawn, takes no
+// finger), "" = the part's own label (the d-pad's arrows), else the name
+// on that controller (CROSS, C, LB...). six_face: A B C below, X Y Z above
+// in the face buttons' place, on the RetroPad's Y B A / L X R (the Genesis
+// cores' places).
+struct PadStyle
+{
+    const char* labels[16] = {};
+    bool        sticks     = true;
+    bool        six_face   = false;
+};
+
 struct PadLayout
 {
     const char*    name          = "";        // settings section, e.g. "gamepad_portrait"
@@ -87,6 +101,7 @@ struct PadLayout
     // 2.16:1 phone layout): the dp it has beyond width / height, set by
     // pad_layouts_place. Groups in the right / bottom third move by all of
     // it, the middle third by half: the pad keeps to the screen's edges.
+    const PadStyle* style         = nullptr;   // the frontend's (PadStyle); nullptr = the RetroPad
     float          extra_width    = 0.0f;
     float          extra_height   = 0.0f;
     const char*    menu_label     = nullptr;  // the menu button's label, the same way
@@ -118,7 +133,8 @@ bool pad_layout_has_group(const PadLayout* layout, PadGroup group);
 void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float* y, float* width, float* height);
 
 // Part `part` as it's shown, in `shown` (the action / menu button with the
-// frontend's label); false = not shown (an action / menu button without one).
+// frontend's label, a button with its style's); false = not shown (an
+// action / menu button without a label, a button or stick its style lacks).
 bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown);
 
 // A group's bounding box with its change applied, in reference dp.
