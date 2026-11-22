@@ -6,18 +6,22 @@
 // moves through its history, makes the thumbnails and fills this in.
 //
 //   HEADER   the title chip (◀◀ DVR, ▶ WATCHING), the mode, how much is
-//            kept, where the cursor is.
+//            kept, where the cursor is, and the exit button at the right
+//            (BACK TO NOW): UP focuses it, the only place the DVR navigates
+//            to; everything else is a button acting at once.
 //   STRIP    thumbnails along the bottom, the selected one bigger in the
 //            middle; the ones after the cursor (kept until PLAY FROM HERE)
 //            darker. A track under them with the cursor between two.
+//            A move that hits either end of the history bounces the selected
+//            one toward that end, its border blinking red and white
+//            (Andrés: "bounce it a bit").
 //   HINTS    gamepad: key chips and what they do. Touch: big buttons (the
 //            on-screen pad is hidden while the DVR is open).
 //
 // The game isn't drawn here: the frontend draws it shrunk into the space
 // above (dvr_view_height says how much the strip takes).
 //
-// A HUD indicator (no input, never in the way): a small card at the top
-// left for a moment ("◀◀ PLAYING FROM -0:27.8").
+// Its HUD (the PLAY state icon, why it didn't open) is hud_view's.
 
 #include <cstdint>
 
@@ -62,6 +66,7 @@ struct DvrViewText
     const char* mode    = "";   // "SCRUB" / "SNAPSHOTS EVERY 10 S"
     const char* kept    = "";   // "4:12 KEPT" ("" = not shown)
     const char* readout = "";   // where the cursor is: "-0:27.8"
+    const char* exit    = "";   // the exit button: "BACK TO NOW"
 };
 
 struct DvrView
@@ -75,7 +80,12 @@ struct DvrView
     DvrViewHint  hints[DVR_VIEW_MAX_HINTS];
     uint32_t     hint_count = 0;
     bool         touch    = false;  // big buttons, no time under every thumbnail
+    bool         exit_focused = false;   // UP went to the exit button (ACCEPT presses it)
+    int32_t      bump_direction = 0;      // a move hit the end: -1 the oldest, 1 the newest (0: none)
+    float        bump_seconds   = 0.0f;   // since it did (the bounce lasts DVR_VIEW_BUMP_SECONDS)
 };
+
+constexpr float DVR_VIEW_BUMP_SECONDS = 0.45f;
 
 // What the mouse / a finger did this frame.
 struct DvrViewInput
@@ -90,7 +100,3 @@ float dvr_view_height(const DvrView* view, int32_t scale);
 // The strip, above every window (it is one: the DVR's GUI).
 void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const DvrViewText* text,
                    DvrViewInput* input);
-
-// The HUD indicator: shown for a while after `since_ms`, then it fades.
-// Draws nothing once it has faded (or with since_ms 0).
-void dvr_view_draw_hud(ImFont* pixel_font, int32_t scale, const char* text, uint64_t since_ms, uint64_t now_ms);

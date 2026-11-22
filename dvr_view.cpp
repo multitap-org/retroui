@@ -30,9 +30,13 @@ constexpr uint32_t CARD_ALPHA = 0xB0000000u;
 constexpr uint32_t DIM_ALPHA  = 0x9E000000u;   // a thumbnail that isn't selected (62%)
 constexpr uint32_t AFTER_ALPHA = 0x66000000u;  // one after the cursor (40%)
 
-// The HUD indicator.
-constexpr uint64_t HUD_MS      = 2500;
-constexpr uint64_t HUD_FADE_MS = 500;
+// The bounce at an end of the history: five steps, each with its border
+// colour and how far the thumbnail is pushed toward that end (retro pixels).
+constexpr uint32_t BUMP_STEPS = 5;
+constexpr uint32_t BUMP_RED   = 0xFF4F5AFFu;
+constexpr uint32_t BUMP_WHITE = 0xFFFFFFFFu;
+constexpr float    BUMP_PUSH[BUMP_STEPS] = {3.0f, 2.0f, -1.0f, 0.0f, 0.0f};
+
 
 static bool clicked_in(float x, float y, float width, float height)
 {
@@ -71,7 +75,8 @@ float dvr_view_height(const DvrView* view, int32_t scale)
     return rows * static_cast<float>(scale > 0 ? scale : 1);
 }
 
-static void draw_header(const DvrViewText* text, float top, float width, float block)
+static void draw_header(const DvrView* view, const DvrViewText* text, float top, float width, float block,
+                        DvrViewInput* input)
 {
     const RetroUiPalette* palette = retro_ui_palette();
     float y = top + GAP * block;
@@ -81,7 +86,30 @@ static void draw_header(const DvrViewText* text, float top, float width, float b
     x += draw_chip(x, y + block, CHIP * block, CHIP_PAD, text->title, palette->highlight, palette->text_highlight, block);
     float text_y = y + 2.0f * block;
     retro_ui_layer_text(x + 6.0f * block, text_y, text->mode, palette->text);
-    float right = width - (MARGIN + 4.0f) * block;
+
+    // The exit button at the right; focused (UP): lit, with a frame.
+    float right = width - (MARGIN + 2.0f) * block;
+    if (text->exit[0] != '\0')
+    {
+        float exit_w = std::floor(retro_ui_layer_text_width(text->exit)) + 2.0f * CHIP_PAD * block;
+        float exit_x = right - exit_w;
+        if (view->exit_focused)
+        {
+            retro_ui_layer_rect(exit_x - block, y, exit_w + 2.0f * block, HEADER * block, palette->text_highlight);
+        }
+        draw_chip(exit_x, y + block, CHIP * block, CHIP_PAD, text->exit,
+                  view->exit_focused ? palette->highlight : palette->button_face,
+                  view->exit_focused ? palette->text_highlight : palette->button_text, block);
+        if (clicked_in(exit_x, y + block, exit_w, CHIP * block))
+        {
+            input->action = DvrViewAction::back_to_now;
+        }
+        right = exit_x - 8.0f * block;
+    }
+    else
+    {
+        right -= 2.0f * block;
+    }
     float readout = std::floor(retro_ui_layer_text_width(text->readout));
     retro_ui_layer_text(right - readout, text_y, text->readout, palette->section);
     if (text->kept[0] != '\0')
@@ -124,14 +152,21 @@ static void draw_thumbs(const DvrView* view, float top, float width, float block
         float h = big ? big_h : small_h;
         float y = big ? big_y : small_y;
         centres[i] = x + std::floor(w * 0.5f);
+        uint32_t frame_color = palette->text_highlight;
+        if (big && view->bump_direction != 0 && view->bump_seconds >= 0.0f && view->bump_seconds < DVR_VIEW_BUMP_SECONDS)
+        {
+            uint32_t step = static_cast<uint32_t>(view->bump_seconds / DVR_VIEW_BUMP_SECONDS * static_cast<float>(BUMP_STEPS));
+            step = step < BUMP_STEPS ? step : BUMP_STEPS - 1;
+            x += BUMP_PUSH[step] * static_cast<float>(view->bump_direction) * block;
+            frame_color = step == 4 ? palette->text_highlight : step % 2 == 0 ? BUMP_RED : BUMP_WHITE;
+        }
         if (x + w < 0.0f || x > width)
         {
             continue;
         }
         if (big)
         {
-            retro_ui_layer_rect(x - 2.0f * block, y - 2.0f * block, w + 4.0f * block, h + 4.0f * block,
-                                palette->text_highlight);
+            retro_ui_layer_rect(x - 2.0f * block, y - 2.0f * block, w + 4.0f * block, h + 4.0f * block, frame_color);
         }
         else
         {
@@ -261,7 +296,7 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
     float centres[DVR_VIEW_MAX_THUMBS] = {};
 
     retro_ui_begin_layer("##dvr_view", pixel_font, scale, true);
-    draw_header(text, top, width, block);
+    draw_header(view, text, top, width, block, input);
     float label_y = 0.0f;
     draw_thumbs(view, top + (GAP + HEADER + GAP) * block, width, block, centres, &label_y, input);
     float below = label_y + LABEL * block;
@@ -274,27 +309,5 @@ void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const
         draw_track(view, below + 2.0f * block, width, block, centres);
         draw_hints(view, below + (TRACK + GAP) * block, width, block, input);
     }
-    retro_ui_end_layer();
-}
-
-void dvr_view_draw_hud(ImFont* pixel_font, int32_t scale, const char* text, uint64_t since_ms, uint64_t now_ms)
-{
-    if (since_ms == 0 || now_ms < since_ms || now_ms - since_ms >= HUD_MS + HUD_FADE_MS)
-    {
-        return;
-    }
-    float fade = 1.0f;
-    if (now_ms - since_ms > HUD_MS)
-    {
-        fade = 1.0f - static_cast<float>(now_ms - since_ms - HUD_MS) / static_cast<float>(HUD_FADE_MS);
-    }
-    const RetroUiPalette* palette = retro_ui_palette();
-    float block = static_cast<float>(scale > 0 ? scale : 1);
-    retro_ui_begin_layer("##dvr_hud", pixel_font, scale, false);
-    float w = std::floor(retro_ui_layer_text_width(text)) + 2.0f * CHIP_PAD * block;
-    uint32_t card = static_cast<uint32_t>(static_cast<float>(CARD_ALPHA >> 24) * fade) << 24;
-    uint32_t ink = static_cast<uint32_t>(255.0f * fade) << 24;
-    retro_ui_layer_rect(MARGIN * block, MARGIN * block, w, CHIP * block, retro_ui_color_set_alpha(palette->panel_dark, card));
-    retro_ui_layer_text((MARGIN + CHIP_PAD) * block, (MARGIN + 2.0f) * block, text, retro_ui_color_set_alpha(palette->section, ink));
     retro_ui_end_layer();
 }
