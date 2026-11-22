@@ -26,7 +26,8 @@ enum class PadPartKind
     button,   // a block with its label
     stick,    // a block with a nub in the middle
     action,   // the frontend's own button (piccoletto: HOTKEY, with STREAM access;
-              // piccolo: MENU), labelled by it; shown only when it gives a label
+              // piccolo: QUICK MENU), labelled by it; shown only when it gives a label
+    menu,     // a second one of the frontend's (piccolo: MAIN MENU), the same way
 };
 
 // What moves together in EDIT LAYOUT.
@@ -82,6 +83,9 @@ struct PadLayout
     const char*    action_label   = nullptr;  // the action button's label, set by the frontend (nullptr: not shown)
     bool           action_held    = false;    // a finger is on the action button (this frame)
     bool           action_pressed = false;    // ...and went down on it this frame
+    const char*    menu_label     = nullptr;  // the menu button's label, the same way
+    bool           menu_held      = false;
+    bool           menu_pressed   = false;
 };
 
 constexpr int32_t PAD_MAX_PARTS = 32;   // `held`'s bits
@@ -106,6 +110,10 @@ bool pad_layout_has_group(const PadLayout* layout, PadGroup group);
 
 // A part's rectangle with its group's change applied, in reference dp.
 void pad_layout_part_rect(const PadLayout* layout, int32_t part, float* x, float* y, float* width, float* height);
+
+// Part `part` as it's shown, in `shown` (the action / menu button with the
+// frontend's label); false = not shown (an action / menu button without one).
+bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown);
 
 // A group's bounding box with its change applied, in reference dp.
 void pad_layout_group_rect(const PadLayout* layout, PadGroup group, float* x, float* y, float* width, float* height);

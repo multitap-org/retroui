@@ -8,6 +8,7 @@
 constexpr PadPartKind BUTTON = PadPartKind::button;
 constexpr PadPartKind STICK = PadPartKind::stick;
 constexpr PadPartKind ACTION = PadPartKind::action;   // its label comes from the frontend
+constexpr PadPartKind MENU = PadPartKind::menu;       // the same (piccolo: MAIN MENU)
 constexpr TouchText NORMAL = TouchText::normal;
 constexpr TouchText BIG = TouchText::big;
 constexpr PadGroup LSH = PadGroup::left_shoulders;
@@ -48,8 +49,8 @@ static const PadPart GAMEPAD_PORTRAIT[] = {
 // or see-through over the picture (REMOTE PLAY). The shoulders under the
 // title bar's row (back, the port LEDs, the icons), the d-pad on the left,
 // the face buttons on the right (all four the same size), the sticks inside,
-// SELECT / the action button / START in a row at the bottom (the action only when the
-// frontend shows it); piccoletto's port LEDs and ping in the bottom left corner.
+// the menu button / SELECT / the action button / START in a row at the bottom (those two
+// only when the frontend shows them); piccoletto's port LEDs and ping in the bottom left corner.
 static const PadPart LANDSCAPE_PAD[] = {
     {"##l2", "L2", 16, 68, 140, 34, BUTTON, NORMAL, LSH},
     {"##l", "L", 164, 68, 150, 34, BUTTON, NORMAL, LSH},
@@ -66,16 +67,24 @@ static const PadPart LANDSCAPE_PAD[] = {
     {"##b", "B", 680, 252, 64, 64, BUTTON, BIG, FACE},
     {"##lstick", "", 230, 256, 80, 80, STICK, NORMAL, LSTICK},
     {"##rstick", "", 534, 256, 80, 80, STICK, NORMAL, RSTICK},
+    {"##menu", "MENU", 164, 350, 96, 36, MENU, NORMAL, CENTER},
     {"##select", "SELECT", 268, 350, 84, 36, BUTTON, NORMAL, CENTER},
     {"##hotkey", "HOTKEY", 360, 350, 124, 36, ACTION, NORMAL, CENTER},
     {"##start", "START", 492, 350, 84, 36, BUTTON, NORMAL, CENTER},
 };
 
-// REMOTE PLAY, portrait, under the picture (390 x 380 dp: the controls of the
-// mockup's lower half, shrunk to whatever room the picture leaves).
+// REMOTE PLAY, portrait, under the picture (390 x 420 dp: the controls of the
+// mockup's lower half, shrunk to whatever room the picture leaves). The whole
+// RetroPad, as sideways (Andrés, 2026-11-21: every element in every
+// orientation for now): L2 / R2 and the sticks too. The menu
+// and action buttons (piccolo: MENU, QUICK) beside SELECT / START, shown
+// only when the frontend labels them: without a keyboard they're the way to
+// piccolo's menus.
 static const PadPart REMOTE_BELOW[] = {
-    {"##l", "L", 24, 16, 120, 40, BUTTON, NORMAL, LSH},
-    {"##r", "R", 246, 16, 120, 40, BUTTON, NORMAL, RSH},
+    {"##l2", "L2", 16, 12, 80, 36, BUTTON, NORMAL, LSH},
+    {"##l", "L", 104, 12, 80, 36, BUTTON, NORMAL, LSH},
+    {"##r", "R", 206, 12, 80, 36, BUTTON, NORMAL, RSH},
+    {"##r2", "R2", 294, 12, 80, 36, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 70, 140, 52, 52, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 70, 88, 52, 52, BUTTON, NORMAL, DPAD},
     {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 70, 192, 52, 52, BUTTON, NORMAL, DPAD},
@@ -85,14 +94,20 @@ static const PadPart REMOTE_BELOW[] = {
     {"##x", "X", 314, 62, 52, 52, BUTTON, BIG, FACE},
     {"##b", "B", 214, 166, 68, 68, BUTTON, BIG, FACE},
     {"##a", "A", 298, 118, 68, 68, BUTTON, BIG, FACE},
-    {"##select", "SELECT", 104, 284, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##start", "START", 196, 284, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##menu", "MENU", 8, 262, 88, 32, MENU, NORMAL, CENTER},
+    {"##select", "SELECT", 104, 262, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##start", "START", 196, 262, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##hotkey", "HOTKEY", 294, 262, 88, 32, ACTION, NORMAL, CENTER},
+    {"##lstick", "", 60, 312, 96, 96, STICK, NORMAL, LSTICK},
+    {"##rstick", "", 234, 312, 96, 96, STICK, NORMAL, RSTICK},
 };
 
 // REMOTE PLAY, portrait, over a tall picture (390 x 844 dp): the controls
 // over its lower half (the DS's bottom screen), small and see-through.
 static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
+    {"##l2", "L2", 12, 410, 96, 36, BUTTON, NORMAL, LSH},
     {"##l", "L", 12, 452, 96, 36, BUTTON, NORMAL, LSH},
+    {"##r2", "R2", 282, 410, 96, 36, BUTTON, NORMAL, RSH},
     {"##r", "R", 282, 452, 96, 36, BUTTON, NORMAL, RSH},
     {"##dpad_center", "", 64, 620, 46, 46, BUTTON, NORMAL, DPAD},
     {"##up", PIXEL_FONT_UTF8_ARROW_UP, 64, 574, 46, 46, BUTTON, NORMAL, DPAD},
@@ -103,8 +118,12 @@ static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
     {"##b", "B", 280, 666, 46, 46, BUTTON, BIG, FACE},
     {"##y", "Y", 234, 620, 46, 46, BUTTON, BIG, FACE},
     {"##a", "A", 326, 620, 46, 46, BUTTON, BIG, FACE},
-    {"##select", "SELECT", 110, 770, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##start", "START", 200, 770, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##lstick", "", 45, 718, 84, 84, STICK, NORMAL, LSTICK},
+    {"##rstick", "", 261, 718, 84, 84, STICK, NORMAL, RSTICK},
+    {"##menu", "MENU", 12, 806, 88, 32, MENU, NORMAL, CENTER},
+    {"##select", "SELECT", 110, 806, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##start", "START", 200, 806, 80, 32, BUTTON, NORMAL, CENTER},
+    {"##hotkey", "HOTKEY", 290, 806, 88, 32, ACTION, NORMAL, CENTER},
 };
 
 static void define(PadLayouts* layouts, PadLayoutId id, const char* name, const PadPart* parts, int32_t count, float width,
@@ -128,11 +147,11 @@ void pad_layouts_init(PadLayouts* layouts)
     define(layouts, PadLayoutId::gamepad_landscape, "gamepad_landscape", LANDSCAPE_PAD,
            static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 1.0f);
     define(layouts, PadLayoutId::remote_below, "remote_below", REMOTE_BELOW,
-           static_cast<int32_t>(sizeof(REMOTE_BELOW) / sizeof(REMOTE_BELOW[0])), 390.0f, 380.0f, 1.0f);
+           static_cast<int32_t>(sizeof(REMOTE_BELOW) / sizeof(REMOTE_BELOW[0])), 390.0f, 420.0f, 1.0f);
     define(layouts, PadLayoutId::remote_overlay_portrait, "remote_overlay_portrait", REMOTE_OVERLAY_PORTRAIT,
-           static_cast<int32_t>(sizeof(REMOTE_OVERLAY_PORTRAIT) / sizeof(REMOTE_OVERLAY_PORTRAIT[0])), 390.0f, 844.0f, 0.5f);
+           static_cast<int32_t>(sizeof(REMOTE_OVERLAY_PORTRAIT) / sizeof(REMOTE_OVERLAY_PORTRAIT[0])), 390.0f, 844.0f, 0.8f);
     define(layouts, PadLayoutId::remote_overlay_landscape, "remote_overlay_landscape", LANDSCAPE_PAD,
-           static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 0.6f);
+           static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 0.8f);
 }
 
 PadLayout* pad_layouts_get(PadLayouts* layouts, PadLayoutId id)

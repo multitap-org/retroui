@@ -112,14 +112,10 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         float width = 0.0f;
         float height = 0.0f;
         pad_layout_part_rect(layout, i, &x, &y, &width, &height);
-        PadPart part = layout->parts[i];
-        if (part.kind == PadPartKind::action)
+        PadPart part;
+        if (!pad_layout_shown_part(layout, i, &part))
         {
-            if (layout->action_label == nullptr)
-            {
-                continue;   // (not shown in play either)
-            }
-            part.label = layout->action_label;
+            continue;   // (not shown in play either)
         }
         pad_part_draw(ui, &part, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height),
                       layout->alpha, false, layout->overlay, 0.0f, 0.0f);

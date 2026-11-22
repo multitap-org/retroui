@@ -346,6 +346,10 @@ static bool lit_part(const TouchUi* ui, const PadPart* part, float* stick_x, flo
     {
         return ui->action_lit;
     }
+    if (part->kind == PadPartKind::menu)
+    {
+        return false;   // no gamepad button lights it
+    }
     const RetroPad* lit = ui->lit;
     if (lit == nullptr)
     {
@@ -364,26 +368,39 @@ static bool lit_part(const TouchUi* ui, const PadPart* part, float* stick_x, flo
     return retropad_button_for_part(part->id, &button) && (lit->buttons & (1u << static_cast<uint32_t>(button))) != 0;
 }
 
+bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown)
+{
+    *shown = layout->parts[part];
+    if (shown->kind == PadPartKind::action || shown->kind == PadPartKind::menu)
+    {
+        const char* label = shown->kind == PadPartKind::action ? layout->action_label : layout->menu_label;
+        if (label == nullptr)
+        {
+            return false;
+        }
+        shown->label = label;
+        return true;
+    }
+    return true;
+}
+
 void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout)
 {
     uint32_t held_now = 0;
     bool action_was_held = layout->action_held;
+    bool menu_was_held = layout->menu_held;
     layout->action_held = false;
     layout->action_pressed = false;
+    layout->menu_held = false;
+    layout->menu_pressed = false;
     for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
     {
-        const PadPart* part = &layout->parts[i];
-        PadPart labelled;   // the action button with the frontend's label
-        if (part->kind == PadPartKind::action)
+        PadPart shown;   // the action / menu button with the frontend's label
+        if (!pad_layout_shown_part(layout, i, &shown))
         {
-            if (layout->action_label == nullptr)
-            {
-                continue;
-            }
-            labelled = *part;
-            labelled.label = layout->action_label;
-            part = &labelled;
+            continue;
         }
+        const PadPart* part = &shown;
         float x = 0.0f;
         float y = 0.0f;
         float width = 0.0f;
@@ -402,6 +419,11 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         {
             layout->action_held = true;
             layout->action_pressed = !action_was_held;
+        }
+        if (finger != nullptr && part->kind == PadPartKind::menu)
+        {
+            layout->menu_held = true;
+            layout->menu_pressed = !menu_was_held;
         }
         if (finger != nullptr && ui->pad != nullptr)
         {
