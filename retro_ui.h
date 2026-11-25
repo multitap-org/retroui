@@ -69,7 +69,8 @@ enum class RetroUiTheme
 // The built-in palette of a theme.
 const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme);
 
-// The palette everything is drawn with from now on (copied).
+// The palette everything is drawn with from now on (copied). Modals don't
+// dim the screen behind them: the frontend draws one backdrop of its own.
 void retro_ui_set_palette(const RetroUiPalette* palette);
 
 // The scale for a window: the biggest whole block that leaves at least
@@ -86,8 +87,10 @@ void retro_ui_center_windows(void);
 
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item
-// whose id is RETRO_UI_MENU_SEPARATOR is a line between items. A menu with
-// no items shows `empty_label` (disabled) instead, if it has one.
+// whose id is RETRO_UI_MENU_SEPARATOR is a line between items; one not
+// `enabled` is greyed out and can't be picked (it shows where it is: CLOSE
+// GAME while no game runs). A menu with no items shows `empty_label`
+// (disabled) instead, if it has one.
 constexpr int32_t RETRO_UI_MENU_NONE = -1;        // nothing picked
 constexpr int32_t RETRO_UI_MENU_SEPARATOR = -2;
 
@@ -95,6 +98,7 @@ struct RetroUiMenuItem
 {
     const char* label;
     int32_t     id;
+    bool        enabled = true;
 };
 
 struct RetroUiMenu
@@ -215,6 +219,11 @@ bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, 
 // one stays pressed in (sunken, the highlight color, its label down a pixel),
 // the others raised. True when another one was clicked (*current changed).
 bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current);
+// The same, the buttons sharing `width` equally whatever their labels (0: the
+// width left on the line), as far apart as a row of equal buttons
+// (retro_ui_equal_buttons), so their edges line up with the rows around.
+bool retro_ui_choice_buttons_equal(const char* id, const char* const* labels, uint32_t count, uint32_t* current,
+                                   float width);
 
 // The theme's mouse cursor, when the palette has one: hides the system's and
 // draws ours at the mouse. Call once per frame, after the UI; `visible`: the

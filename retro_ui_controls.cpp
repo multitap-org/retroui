@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include "imgui.h"
@@ -344,6 +345,21 @@ static int edit_field_callback(ImGuiInputTextCallbackData* data)
     return 0;
 }
 
+// The code boxes' field: an edit field's filtering, and its caret kept at
+// the end, so a click or an arrow key can't send the next digit into the
+// middle while the boxes edge the last one (they show no caret of their own).
+static int code_boxes_callback(ImGuiInputTextCallbackData* data)
+{
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackAlways)
+    {
+        data->CursorPos = data->BufTextLen;
+        data->SelectionStart = data->BufTextLen;
+        data->SelectionEnd = data->BufTextLen;
+        return 0;
+    }
+    return edit_field_callback(data);
+}
+
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field)
 {
     ImGui::PushID(id);
@@ -379,6 +395,117 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
         entered = ImGui::InputText("##edit", buffer, buffer_size, flags, edit_field_callback, user_data);
     }
     retro_ui_pop_field_text();
+    ImGui::PopID();
+    return entered;
+}
+
+// The code boxes' metrics: window pixels per retro pixel, and the bigger
+// font's size (one whole step up: the pixel font stays sharp).
+static float code_block()
+{
+    float block = std::floor(ImGui::GetFontSize() / PIXEL_FONT_IMGUI_UNIT);
+    return block < 1.0f ? 1.0f : block;
+}
+
+static float code_font_size()
+{
+    return PIXEL_FONT_IMGUI_UNIT * (code_block() + 1.0f);
+}
+
+float retro_ui_code_boxes_height()
+{
+    return code_font_size() + code_block() * 6.0f;
+}
+
+bool retro_ui_code_boxes(const char* id, char* digits, size_t digits_size, const RetroUiCodeBoxes* boxes)
+{
+    uint32_t groups = boxes->groups > 0 ? boxes->groups : 1;
+    uint32_t group_digits = boxes->group_digits > 0 ? boxes->group_digits : 1;
+    uint32_t total = groups * group_digits;
+    float block = code_block();
+    float big = code_font_size();
+    float width = take_control_width();
+    float height = retro_ui_code_boxes_height();
+    ImGui::PushID(id);
+    ImVec2 origin = ImGui::GetCursorScreenPos();
+    bool entered = false;
+    bool typing = false;
+    if (boxes->editable)
+    {
+        // One field over all the boxes, invisible (its frame, text and caret):
+        // it takes the keys, the clicks and the gamepad's focus (and the
+        // touch keyboard), and the boxes drawn over it show what it holds.
+        if (boxes->focus)
+        {
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImVec4 clear = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, clear);
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, clear);
+        ImGui::PushStyleColor(ImGuiCol_InputTextCursor, clear);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                            ImVec2(ImGui::GetStyle().FramePadding.x, std::floor((height - ImGui::GetFontSize()) * 0.5f)));
+        ImGui::SetNextItemWidth(width);
+        RetroUiEditField field = {};
+        field.digits_only = true;
+        field.max_characters = total;
+        void* user_data = &field;
+        entered = ImGui::InputText("##code", digits, digits_size,
+                                   ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackEdit |
+                                       ImGuiInputTextFlags_CallbackCharFilter | ImGuiInputTextFlags_CallbackAlways,
+                                   code_boxes_callback, user_data);
+        typing = ImGui::IsItemActive();
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(6);
+    }
+    else
+    {
+        ImGui::Dummy(ImVec2(width, height));
+    }
+    // The boxes, over it. GetColorU32 takes the style's alpha: greyed out
+    // inside retro_ui_begin_disabled, like the controls around.
+    const RetroUiPalette* palette = retro_ui_palette();
+    ImU32 face = ImGui::GetColorU32(retro_ui_color_vec4(palette->field_face));
+    ImU32 edge = ImGui::GetColorU32(retro_ui_color_vec4(palette->highlight));
+    ImU32 edge_typing = ImGui::GetColorU32(retro_ui_color_vec4(palette->text_highlight));
+    ImU32 text = ImGui::GetColorU32(retro_ui_color_vec4(palette->field_text));
+    ImU32 missing = ImGui::GetColorU32(retro_ui_color_vec4(palette->text_disabled));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImFont* font = ImGui::GetFont();
+    float gap = spacing();
+    float column = std::floor((width - gap * static_cast<float>(groups - 1)) / static_cast<float>(groups));
+    float digit_width = font->CalcTextSizeA(big, 1.0e6f, 0.0f, "0").x;
+    float pitch = digit_width + block * 2.0f;   // the digits a little apart, "_" too
+    float group_width = pitch * static_cast<float>(group_digits) - block * 2.0f;
+    size_t length = std::strlen(digits);
+    uint32_t next = length < total ? static_cast<uint32_t>(length) : total - 1;   // where typing goes
+    for (uint32_t g = 0; g < groups; g++)
+    {
+        float x = origin.x + (column + gap) * static_cast<float>(g);
+        float this_width = g + 1 < groups ? column : width - (column + gap) * static_cast<float>(groups - 1);
+        ImVec2 min = ImVec2(x, origin.y);
+        ImVec2 max = ImVec2(x + this_width, origin.y + height);
+        draw_list->AddRectFilled(min, max, face);
+        bool here = typing && next / group_digits == g;
+        float thickness = here ? block * 2.0f : block;
+        ImU32 outline = here ? edge_typing : edge;
+        draw_list->AddRectFilled(min, ImVec2(max.x, min.y + thickness), outline);
+        draw_list->AddRectFilled(ImVec2(min.x, max.y - thickness), max, outline);
+        draw_list->AddRectFilled(min, ImVec2(min.x + thickness, max.y), outline);
+        draw_list->AddRectFilled(ImVec2(max.x - thickness, min.y), max, outline);
+        float digit_x = std::floor(x + (this_width - group_width) * 0.5f);
+        float digit_y = std::floor(origin.y + (height - big) * 0.5f);
+        for (uint32_t d = 0; d < group_digits; d++)
+        {
+            size_t index = static_cast<size_t>(g * group_digits + d);
+            char glyph[2] = {index < length ? digits[index] : '_', '\0'};
+            draw_list->AddText(font, big, ImVec2(digit_x + pitch * static_cast<float>(d), digit_y),
+                               index < length ? text : missing, glyph);
+        }
+    }
     ImGui::PopID();
     return entered;
 }
@@ -449,6 +576,105 @@ void retro_ui_end_choice()
     ImGui::PopID();
 }
 
+int32_t retro_ui_equal_buttons(const RetroUiRowButton* buttons, uint32_t count, float width)
+{
+    if (count == 0)
+    {
+        return -1;
+    }
+    float row = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+    float gaps = spacing() * static_cast<float>(count - 1);
+    // Whole pixels; the last column takes what rounding left, so the row
+    // ends exactly at `width` (rows of other counts end there too).
+    float column = std::floor((row - gaps) / static_cast<float>(count));
+    int32_t pressed = -1;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (i > 0)
+        {
+            ImGui::SameLine();
+        }
+        float this_width = i + 1 < count ? column : row - gaps - column * static_cast<float>(count - 1);
+        retro_ui_begin_disabled(!buttons[i].enabled);
+        char imgui_label[300] = {};
+        if (buttons[i].id != nullptr)
+        {
+            std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", buttons[i].label, buttons[i].id);
+        }
+        else
+        {
+            // No id: the column number keeps it apart from its neighbours.
+            std::snprintf(imgui_label, sizeof(imgui_label), "%s###equal_%u", buttons[i].label, i);
+        }
+        if (retro_ui_button_sized(imgui_label, this_width, 0.0f))
+        {
+            pressed = static_cast<int32_t>(i);
+        }
+        if (buttons[i].help != nullptr)
+        {
+            retro_ui_disabled_item_tooltip(buttons[i].help);
+        }
+        retro_ui_end_disabled();
+    }
+    return pressed;
+}
+
+float retro_ui_equal_buttons_width(const RetroUiRowButton* buttons, uint32_t count, uint32_t columns)
+{
+    float widest = 0.0f;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        float width = button_width(buttons[i].label);
+        widest = width > widest ? width : widest;
+    }
+    return columns > 0 ? widest * static_cast<float>(columns) + spacing() * static_cast<float>(columns - 1) : 0.0f;
+}
+
+// A tile's picture and label, over the button just drawn (its label hidden).
+static void draw_tile_picture(const RetroUiTile* tile, const char* label)
+{
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    float pad = std::floor(style.FramePadding.y);
+    float left = std::floor(min.x) + pad;
+    float top = std::floor(min.y) + pad;
+    float area_width = std::floor(max.x) - pad - left;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddRectFilled(ImVec2(left, top), ImVec2(left + area_width, top + tile->picture_height),
+                             retro_ui_color_imgui(0xFF000000u));
+    bool disabled = (ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0;
+    const RetroUiPalette* palette = retro_ui_palette();
+    if (tile->texture != 0)
+    {
+        float x = std::floor(left + (area_width - tile->image_width) * 0.5f);
+        float y = std::floor(top + (tile->picture_height - tile->image_height) * 0.5f);
+        // Bilinear for this picture only, then back to the window's nearest
+        // (the pixel font's).
+        const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
+        draw_list->AddImage(static_cast<ImTextureID>(tile->texture), ImVec2(x, y),
+                            ImVec2(x + tile->image_width, y + tile->image_height), ImVec2(0.0f, 0.0f),
+                            ImVec2(tile->u_max, tile->v_max));
+        draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);
+    }
+    else if (tile->empty != nullptr)
+    {
+        ImVec2 text = ImGui::CalcTextSize(tile->empty);
+        draw_list->AddText(ImVec2(std::floor(left + (area_width - text.x) * 0.5f),
+                                  std::floor(top + (tile->picture_height - text.y) * 0.5f)),
+                           retro_ui_color_imgui(palette->text_disabled), tile->empty);
+    }
+    // The label in the room left under the picture, centered.
+    const char* end = ImGui::FindRenderedTextEnd(label);
+    ImVec2 text = ImGui::CalcTextSize(label, end);
+    float below = top + tile->picture_height;
+    float x = std::floor(min.x + (max.x - min.x - text.x) * 0.5f);
+    float y = std::floor(below + (max.y - pad - below - text.y) * 0.5f);
+    draw_list->AddText(ImVec2(x, y), retro_ui_color_imgui(disabled ? palette->text_disabled : palette->button_text),
+                       label, end);
+}
+
 bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
 {
     ImGui::PushID(id);
@@ -456,18 +682,34 @@ bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, retro_ui_color_vec4(tile->face));
     }
-    if (tile->chosen)
-    {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, tile->edge);
-    }
     if (tile->focus)
     {
         ImGui::SetKeyboardFocusHere();
     }
-    bool chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
-    if (tile->chosen)
+    bool chosen = false;
+    if (tile->picture_height > 0.0f)
     {
-        ImGui::PopStyleVar();
+        // The button without its label: the picture and the label go over it.
+        chosen = retro_ui_button_sized("##tile", tile->width, tile->height) || ImGui::IsItemFocused();
+        draw_tile_picture(tile, label);
+    }
+    else
+    {
+        chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
+    }
+    if (tile->chosen && tile->edge > 0.0f)
+    {
+        // The edge last, over the face and the picture (a frame border
+        // would be painted over by them), in the theme's light color.
+        ImVec2 min = ImGui::GetItemRectMin();
+        ImVec2 max = ImGui::GetItemRectMax();
+        float edge = std::floor(tile->edge) > 1.0f ? std::floor(tile->edge) : 1.0f;
+        ImU32 color = ImGui::GetColorU32(retro_ui_color_vec4(retro_ui_palette()->button_light));
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRectFilled(min, ImVec2(max.x, min.y + edge), color);
+        draw_list->AddRectFilled(ImVec2(min.x, max.y - edge), max, color);
+        draw_list->AddRectFilled(min, ImVec2(min.x + edge, max.y), color);
+        draw_list->AddRectFilled(ImVec2(max.x - edge, min.y), max, color);
     }
     if (tile->face != 0)
     {
@@ -842,20 +1084,75 @@ bool retro_ui_section_header_open(const char* id, const char* label, bool open)
     return retro_ui_section_header(id, label, false);
 }
 
+// Tabs split the bar's full width equally (Andrés, testing round 1). ImGui
+// lays a bar out on its first tab, before the others are submitted, so the
+// count is the one the bar had on its last frame: the tabs submitted then
+// (ImGui drops the others on that layout). A bar's first frame has no count
+// and its tabs take their labels' width for that one frame. Bars nest (a
+// tab with tabs of its own): one entry per open bar.
+constexpr int32_t TAB_BAR_DEPTH_MAX = 8;
+struct TabBarLayout
+{
+    float    width = 0.0f;   // the bar's width, at its begin
+    uint32_t count = 0;      // its tabs last frame (0: unknown)
+    uint32_t next = 0;       // the next tab's index this frame
+};
+static TabBarLayout g_tab_bars[TAB_BAR_DEPTH_MAX] = {};
+static int32_t g_tab_bar_depth = 0;
+
 bool retro_ui_begin_tabs(const char* id)
 {
-    return ImGui::BeginTabBar(id);
+    float width = ImGui::GetContentRegionAvail().x;
+    if (!ImGui::BeginTabBar(id))
+    {
+        return false;
+    }
+    if (g_tab_bar_depth < TAB_BAR_DEPTH_MAX)
+    {
+        TabBarLayout* layout = &g_tab_bars[g_tab_bar_depth];
+        ImGuiTabBar* bar = ImGui::GetCurrentTabBar();
+        layout->width = width;
+        layout->count = 0;
+        layout->next = 0;
+        for (int i = 0; bar != nullptr && i < bar->Tabs.Size; i++)
+        {
+            if (bar->Tabs[i].LastFrameVisible >= bar->PrevFrameVisible && bar->PrevFrameVisible >= 0)
+            {
+                layout->count++;
+            }
+        }
+    }
+    g_tab_bar_depth++;
+    return true;
 }
 
 void retro_ui_end_tabs()
 {
     ImGui::EndTabBar();
+    g_tab_bar_depth--;
 }
 
 bool retro_ui_begin_tab(const char* id, const char* label, bool select)
 {
     char imgui_label[300] = {};
     std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", label, id);
+    if (g_tab_bar_depth > 0 && g_tab_bar_depth <= TAB_BAR_DEPTH_MAX)
+    {
+        TabBarLayout* layout = &g_tab_bars[g_tab_bar_depth - 1];
+        uint32_t index = layout->next;
+        layout->next++;
+        if (layout->count > 0 && index < layout->count)
+        {
+            // Whole pixels; the last tab takes what rounding left, so the bar
+            // ends exactly at its right edge.
+            float gaps = ImGui::GetStyle().ItemInnerSpacing.x * static_cast<float>(layout->count - 1);
+            float column = std::floor((layout->width - gaps) / static_cast<float>(layout->count));
+            float this_width = index + 1 < layout->count
+                                   ? column
+                                   : layout->width - gaps - column * static_cast<float>(layout->count - 1);
+            ImGui::SetNextItemWidth(this_width > 1.0f ? this_width : 1.0f);
+        }
+    }
     return ImGui::BeginTabItem(imgui_label, nullptr, select ? ImGuiTabItemFlags_SetSelected : 0);
 }
 
@@ -1101,6 +1398,11 @@ bool retro_ui_item_pointed()
     return ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
 }
 
+bool retro_ui_item_clicked()
+{
+    return ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemActivated();
+}
+
 void retro_ui_push_id(const char* id)
 {
     ImGui::PushID(id);
@@ -1227,6 +1529,18 @@ void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, floa
     ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(left, top),
                                          ImVec2(left + width, top + height), ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max),
                                          retro_ui_color_imgui(argb));
+}
+
+void retro_ui_canvas_image_smooth(uint64_t texture, float x, float y, float width, float height, float u_max,
+                                  float v_max, uint32_t argb)
+{
+    // Bilinear for this image only, then back to the window's nearest (the
+    // pixel font's: retro_ui_begin_window).
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
+    retro_ui_canvas_image(texture, x, y, width, height, u_max, v_max, argb);
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);
 }
 
 void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb)

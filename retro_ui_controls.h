@@ -126,6 +126,28 @@ struct RetroUiEditField
 };
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
 
+// A code of digits (a pairing code) in boxes that split the line's width
+// equally, one group of digits each, in a font one size bigger than the
+// window's: the same look whether it's shown or typed. Digits still missing
+// show as "_".
+//
+//   [  482  ]  [  193  ]  [  _ _ _  ]
+//
+// `editable`: typed into (digits only, `groups` x `group_digits` at most;
+// the box the next digit goes in is edged while it has the keyboard; typing
+// always goes at the end, the caret can't be moved), and true when Enter was
+// pressed in it. Shown only: never true.
+struct RetroUiCodeBoxes
+{
+    uint32_t groups       = 3;
+    uint32_t group_digits = 3;
+    bool     editable     = false;
+    bool     focus        = false;   // editable: the keyboard focus goes to it now
+};
+bool retro_ui_code_boxes(const char* id, char* digits, size_t digits_size, const RetroUiCodeBoxes* boxes);
+// The boxes' height (a panel of fixed height leaves room for them).
+float retro_ui_code_boxes_height();
+
 // A read-only field showing `value` (or `hint` while empty) and "..." after
 // it. True when either was clicked (the caller opens a picker).
 bool retro_ui_picker_field(const char* id, const char* hint, const char* value, const char* help);
@@ -190,17 +212,48 @@ struct RetroUiEndButton
 };
 int32_t retro_ui_end_buttons(const RetroUiEndButton* buttons, uint32_t count, bool same_line);
 
+// Buttons sharing the width of a line equally, whatever their labels: a row
+// of `count` columns `width` wide (0: the width left on the line), the
+// spacing between them included, so rows of different counts over the same
+// width line up at both ends (QUICK MENU's actions, four a row, and SAVE /
+// LOAD / GAME DVR, three). Returns the index of the one pressed, or -1.
+struct RetroUiRowButton
+{
+    const char* id      = nullptr;   // stable while the label changes (the language)
+    const char* label   = nullptr;
+    bool        enabled = true;      // false: greyed out
+    const char* help    = nullptr;   // its tooltip, shown also while greyed out (nullptr: none)
+};
+int32_t retro_ui_equal_buttons(const RetroUiRowButton* buttons, uint32_t count, float width);
+// The width a row of `columns` equal buttons needs so the widest of these
+// `count` labels fits in a column (the spacing between columns included).
+float retro_ui_equal_buttons_width(const RetroUiRowButton* buttons, uint32_t count, uint32_t columns);
+
 // A button of a set where one is chosen (QUICK MENU's save slots): `label`
 // on a `width` x `height` button. True when pressed, and while it has the
 // keyboard focus: the arrows move the choice along the set.
+//
+// With a picture (`picture_height` > 0): a black area that tall across the
+// top, the label under it. `texture` (the toolkit's texture id; 0: none,
+// `empty` dimmed in the middle instead) is drawn `image_width` x
+// `image_height` in the middle of that area, [0, u_max] x [0, v_max] of it,
+// sampled bilinear (a thumbnail smaller than its picture).
 struct RetroUiTile
 {
     float    width  = 0.0f;
     float    height = 0.0f;
     uint32_t face   = 0;       // 0xAARRGGBB; 0: the theme's (another color sets it apart, e.g. a slot in use)
-    bool     chosen = false;   // edged, `edge` pixels wide
+    bool     chosen = false;   // edged, `edge` pixels wide, in the theme's light color (over the picture)
     float    edge   = 0.0f;
     bool     focus  = false;   // the keyboard focus goes to it now (one chosen otherwise: 1-9, opening)
+
+    float       picture_height = 0.0f;
+    uint64_t    texture        = 0;
+    float       image_width    = 0.0f;
+    float       image_height   = 0.0f;
+    float       u_max          = 1.0f;
+    float       v_max          = 1.0f;
+    const char* empty          = nullptr;   // shown without a texture (nullptr: nothing)
 };
 bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile);
 
@@ -329,6 +382,7 @@ bool retro_ui_section_header_open(const char* id, const char* label, bool open);
 // `select`: the tab is chosen now (PAGE LEFT / RIGHT, retro_ui_tab_switch, or
 // a window opened on it); otherwise the user's click chooses. Bars can nest
 // (a tab with tabs of its own). Ids stay while the labels change (the language).
+// The tabs split the bar's full width equally, whatever their labels.
 bool retro_ui_begin_tabs(const char* id);
 void retro_ui_end_tabs();        // only when retro_ui_begin_tabs was true
 bool retro_ui_begin_tab(const char* id, const char* label, bool select);   // true while it's the one shown
@@ -395,6 +449,9 @@ void retro_ui_disabled_item_tooltip(const char* text);
 // a gamepad or keys (a click focuses too, but that focus doesn't count once
 // the mouse has left it): what a picture beside a list follows.
 bool retro_ui_item_pointed();
+// The last item was clicked, or activated from the keys or a gamepad (a
+// read-only field copies what it shows then).
+bool retro_ui_item_clicked();
 
 // Ids for repeated controls (one per item of a list).
 void retro_ui_push_id(const char* id);
@@ -438,6 +495,12 @@ void retro_ui_canvas_outline(float x, float y, float width, float height, uint32
 // [0, v_max] of it is drawn, tinted by `argb` (0xFFFFFFFF: as it is).
 void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
                            uint32_t argb);
+// The same, sampled bilinear instead of nearest (the rest of the window stays
+// nearest). With a texture already scaled up by a whole number with nearest,
+// this is sharp bilinear: sharp pixels, soft only where a pixel falls
+// between two screen pixels.
+void retro_ui_canvas_image_smooth(uint64_t texture, float x, float y, float width, float height, float u_max,
+                                  float v_max, uint32_t argb);
 // Text in the current font, its top left corner at (x, y).
 void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb);
 // A rectangle anywhere on the window being drawn, in pixels from the window's

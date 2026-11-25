@@ -74,6 +74,14 @@ void retro_ui_set_palette(const RetroUiPalette* palette)
     // retro_ui_text_shadows(); without it they are plain shapes (and the
     // UI's lines are one pixel, square, anyway).
     ImGui::GetStyle().AntiAliasedLinesUseTex = false;
+    // No dimming of ImGui's own behind a modal (a question, SAVE THEME) or
+    // the window switcher: the frontend draws one backdrop behind every
+    // window (piccolo's BACKDROP), and a second one over it darkened the
+    // screen twice (Andrés, testing round 1). ImGui reads these colors
+    // when it renders, after the theme's pushed colors are gone, so they
+    // are set in the style itself.
+    ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    ImGui::GetStyle().Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 ImVec4 retro_ui_color_vec4(uint32_t argb)
@@ -313,6 +321,18 @@ static bool menu_item(const char* label)
     return clicked;
 }
 
+// An item that can't be picked: greyed out, never lit. Its label is ours
+// (draw_label's colors), so ImGui's disabled alpha alone wouldn't grey it.
+static void menu_item_disabled(const char* label)
+{
+    ImVec2 item_position = next_text_position(0.0f);
+    push_invisible_text();
+    ImGui::MenuItem(label, nullptr, false, false);
+    ImGui::PopStyleColor();
+    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), item_position,
+                                        retro_ui_color_imgui(g_palette.text_disabled), label);
+}
+
 // One menu on the bar: its title (a box behind it with menu_boxes) and, when
 // open, its dropdown. `open_now`: open it this frame with the keyboard /
 // gamepad focus on its first item. Returns the picked item's id or
@@ -368,7 +388,11 @@ static int32_t bar_menu(const RetroUiMenu* menu, float block, bool open_now)
             continue;
         }
         ImGui::PushID(i);
-        if (menu_item(item->label))
+        if (!item->enabled)
+        {
+            menu_item_disabled(item->label);
+        }
+        else if (menu_item(item->label))
         {
             picked = item->id;
         }
@@ -809,20 +833,36 @@ bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, 
     return pressed;
 }
 
-bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current)
+// Both choice rows: `width` 0 fits each button to its label, one retro pixel
+// apart (one control); otherwise the buttons split `width` equally, as far
+// apart as any two items (they line up with rows of equal buttons).
+static bool choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current, float width)
 {
     float block = retro_pixel();
     bool changed = false;
+    float gap = width > 0.0f ? ImGui::GetStyle().ItemSpacing.x : block;
+    float column = 0.0f;
+    if (width > 0.0f && count > 0)
+    {
+        column = std::floor((width - gap * static_cast<float>(count - 1)) / static_cast<float>(count));
+    }
     ImGui::PushID(id);
     for (uint32_t i = 0; i < count; i++)
     {
         if (i > 0)
         {
-            ImGui::SameLine(0.0f, block);   // one retro pixel apart: one control
+            ImGui::SameLine(0.0f, gap);
+        }
+        ImVec2 size = ImVec2(0.0f, 0.0f);
+        if (width > 0.0f)
+        {
+            // Whole pixels; the last takes what rounding left, so the row ends at `width`.
+            size.x = i + 1 < count ? column : width - gap * static_cast<float>(count - 1) -
+                                                  column * static_cast<float>(count - 1);
         }
         ImGui::PushID(static_cast<int>(i));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        bool clicked = ImGui::Button(labels[i]);
+        bool clicked = ImGui::Button(labels[i], size);
         ImGui::PopStyleColor();
         ImGui::PopID();
         if (clicked && i != *current)
@@ -860,6 +900,18 @@ bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t
     }
     ImGui::PopID();
     return changed;
+}
+
+bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current)
+{
+    return choice_buttons(id, labels, count, current, 0.0f);
+}
+
+bool retro_ui_choice_buttons_equal(const char* id, const char* const* labels, uint32_t count, uint32_t* current,
+                                   float width)
+{
+    float row = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+    return choice_buttons(id, labels, count, current, row > 1.0f ? row : 1.0f);
 }
 
 bool retro_ui_begin_list(const char* id, float width, float height)
