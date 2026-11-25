@@ -159,3 +159,13 @@ void retro_ui_pop_id();
 float retro_ui_width_left();                 // the width left on this line
 float retro_ui_line_height();                // a control's height
 float retro_ui_button_width(const char* label);
+float retro_ui_font_size();                  // the current font's height (its glyphs are drawn this tall)
+
+// ---------------------------------------------------------------------------
+// Drawing in a window (a QR code, a picture with marks over it): a canvas
+// takes `width` x `height` at the cursor, like a control would, and the
+// retro_ui_canvas_* calls after it draw there, in window pixels from its top
+// left corner, until the next canvas. Its corner is on a whole pixel. Colors
+// are ARGB (alpha used).
+void retro_ui_canvas(float width, float height);
+void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t argb);

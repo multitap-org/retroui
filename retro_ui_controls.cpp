@@ -2,6 +2,7 @@
 
 #include "retro_ui_controls.h"
 
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 
@@ -538,4 +539,32 @@ float retro_ui_line_height()
 float retro_ui_button_width(const char* label)
 {
     return button_width(label);
+}
+
+float retro_ui_font_size()
+{
+    return ImGui::GetFontSize();
+}
+
+// ---------------------------------------------------------------------------
+// Drawing in a window.
+
+// The last canvas' top left corner, in screen pixels.
+static float g_canvas_x = 0.0f;
+static float g_canvas_y = 0.0f;
+
+void retro_ui_canvas(float width, float height)
+{
+    ImVec2 origin = ImGui::GetCursorScreenPos();
+    g_canvas_x = std::floor(origin.x);
+    g_canvas_y = std::floor(origin.y);
+    ImGui::Dummy(ImVec2(width, height));
+}
+
+void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t argb)
+{
+    float left = g_canvas_x + x;
+    float top = g_canvas_y + y;
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(left, top), ImVec2(left + width, top + height),
+                                              retro_ui_color_imgui(argb));
 }
