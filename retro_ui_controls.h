@@ -23,6 +23,12 @@
 #include <cstddef>
 #include <cstdint>
 
+#if defined(__GNUC__) || defined(__clang__)
+#define RETRO_UI_PRINTF(format_index, first_argument) __attribute__((format(printf, format_index, first_argument)))
+#else
+#define RETRO_UI_PRINTF(format_index, first_argument)
+#endif
+
 struct RetroUiRow
 {
     const char* id            = nullptr;   // unique among the window's rows
@@ -91,3 +97,53 @@ bool retro_ui_picker_field(const char* id, const char* hint, const char* value, 
 bool retro_ui_begin_choice(const char* id, const char* preview);
 bool retro_ui_choice_item(uint32_t index, const char* label, bool selected);
 void retro_ui_end_choice();
+
+// ---------------------------------------------------------------------------
+// Windows, text and layout. The window's frame is the theme's (light edge,
+// pixel X); positions and sizes are in window pixels.
+
+struct RetroUiWindow
+{
+    const char* id        = nullptr;   // stable: the window stays the same one when its title changes
+    const char* title     = nullptr;   // shown in the title bar
+    float       width     = 0.0f;      // 0: as wide as its contents
+    float       height    = 0.0f;      // 0: as tall as its contents
+    bool        centered  = false;     // kept in the middle of the screen (not movable)
+    float       x         = 0.0f;      // not centered: where it first opens
+    float       y         = 0.0f;
+    bool        closable  = true;      // the X in the title bar
+    bool        resizable = false;
+    bool        focus     = false;     // given the focus every frame (a question that must be answered)
+};
+
+// Draws the window's frame. True while its contents show; call
+// retro_ui_window_end() either way. *closed is set when the X was pressed
+// (may be nullptr).
+bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* closed);
+void retro_ui_window_end();
+
+void retro_ui_text(const char* text);
+void retro_ui_text_format(const char* format, ...) RETRO_UI_PRINTF(1, 2);   // printf-style
+void retro_ui_text_wrapped(const char* text);              // wraps at the window's edge
+void retro_ui_text_colored(uint32_t argb, const char* text);
+void retro_ui_label(const char* text);                     // lined up with the controls beside it
+
+void retro_ui_same_line();              // the next item goes on this line
+void retro_ui_same_line_at(float x);    // ...starting `x` from the window's left edge (a column)
+void retro_ui_spacing();
+void retro_ui_separator();
+void retro_ui_indent();
+void retro_ui_unindent();
+
+// Greys out (and disables) what comes until the matching end, when `disabled`.
+void retro_ui_begin_disabled(bool disabled);
+void retro_ui_end_disabled();
+
+// Ids for repeated controls (one per item of a list).
+void retro_ui_push_id(const char* id);
+void retro_ui_push_index(uint32_t index);
+void retro_ui_pop_id();
+
+float retro_ui_width_left();                 // the width left on this line
+float retro_ui_line_height();                // a control's height
+float retro_ui_button_width(const char* label);

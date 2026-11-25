@@ -2,6 +2,7 @@
 
 #include "retro_ui_controls.h"
 
+#include <cstdarg>
 #include <cstdio>
 
 #include "imgui.h"
@@ -269,4 +270,195 @@ void retro_ui_end_choice()
 {
     ImGui::EndCombo();
     ImGui::PopID();
+}
+
+// ---------------------------------------------------------------------------
+// Windows, text and layout.
+
+// retro_ui_window_end needs to know whether retro_ui_begin_window ran.
+constexpr int32_t WINDOW_DEPTH_MAX = 8;
+static bool g_window_visible[WINDOW_DEPTH_MAX] = {};
+static int32_t g_window_depth = 0;
+
+// begin_disabled(false) must not reach ImGui (its swatches then draw with a
+// saved opacity that may be 0): a stack of what each begin did.
+constexpr int32_t DISABLED_DEPTH_MAX = 16;
+static bool g_disabled[DISABLED_DEPTH_MAX] = {};
+static int32_t g_disabled_depth = 0;
+
+bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* closed)
+{
+    if (closed != nullptr)
+    {
+        *closed = false;
+    }
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings;
+    if (window->width > 0.0f || window->height > 0.0f)
+    {
+        ImGui::SetNextWindowSize(ImVec2(window->width, window->height),
+                                 window->resizable ? ImGuiCond_FirstUseEver : ImGuiCond_Always);
+    }
+    if (window->width <= 0.0f && window->height <= 0.0f)
+    {
+        flags |= ImGuiWindowFlags_AlwaysAutoResize;
+    }
+    if (!window->resizable)
+    {
+        flags |= ImGuiWindowFlags_NoResize;
+    }
+    if (window->centered)
+    {
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
+                                ImVec2(0.5f, 0.5f));
+        flags |= ImGuiWindowFlags_NoMove;
+    }
+    else
+    {
+        ImGui::SetNextWindowPos(ImVec2(window->x, window->y), ImGuiCond_FirstUseEver);
+    }
+    if (window->focus)
+    {
+        ImGui::SetNextWindowFocus();
+    }
+    char title[300] = {};
+    std::snprintf(title, sizeof(title), "%s###%s", window->title != nullptr ? window->title : "", window->id);
+    bool visible = ImGui::Begin(title, nullptr, flags);
+    if (visible)
+    {
+        retro_ui_begin_window(scale);
+        if (window->closable && retro_ui_close_button() && closed != nullptr)
+        {
+            *closed = true;
+        }
+    }
+    if (g_window_depth < WINDOW_DEPTH_MAX)
+    {
+        g_window_visible[g_window_depth] = visible;
+    }
+    g_window_depth++;
+    return visible;
+}
+
+void retro_ui_window_end()
+{
+    g_window_depth--;
+    if (g_window_depth >= 0 && g_window_depth < WINDOW_DEPTH_MAX && g_window_visible[g_window_depth])
+    {
+        retro_ui_end_window();
+    }
+    ImGui::End();
+}
+
+void retro_ui_text(const char* text)
+{
+    ImGui::TextUnformatted(text);
+}
+
+void retro_ui_text_format(const char* format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    ImGui::TextV(format, arguments);
+    va_end(arguments);
+}
+
+void retro_ui_text_wrapped(const char* text)
+{
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(text);
+    ImGui::PopTextWrapPos();
+}
+
+void retro_ui_text_colored(uint32_t argb, const char* text)
+{
+    ImGui::TextColored(retro_ui_color_vec4(argb), "%s", text);
+}
+
+void retro_ui_label(const char* text)
+{
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(text);
+}
+
+void retro_ui_same_line()
+{
+    ImGui::SameLine();
+}
+
+void retro_ui_same_line_at(float x)
+{
+    ImGui::SameLine(x);
+}
+
+void retro_ui_spacing()
+{
+    ImGui::Spacing();
+}
+
+void retro_ui_separator()
+{
+    ImGui::Separator();
+}
+
+void retro_ui_indent()
+{
+    ImGui::Indent();
+}
+
+void retro_ui_unindent()
+{
+    ImGui::Unindent();
+}
+
+void retro_ui_begin_disabled(bool disabled)
+{
+    if (g_disabled_depth < DISABLED_DEPTH_MAX)
+    {
+        g_disabled[g_disabled_depth] = disabled;
+    }
+    g_disabled_depth++;
+    if (disabled)
+    {
+        ImGui::BeginDisabled();
+    }
+}
+
+void retro_ui_end_disabled()
+{
+    g_disabled_depth--;
+    if (g_disabled_depth >= 0 && g_disabled_depth < DISABLED_DEPTH_MAX && g_disabled[g_disabled_depth])
+    {
+        ImGui::EndDisabled();
+    }
+}
+
+void retro_ui_push_id(const char* id)
+{
+    ImGui::PushID(id);
+}
+
+void retro_ui_push_index(uint32_t index)
+{
+    ImGui::PushID(static_cast<int>(index));
+}
+
+void retro_ui_pop_id()
+{
+    ImGui::PopID();
+}
+
+float retro_ui_width_left()
+{
+    return ImGui::GetContentRegionAvail().x;
+}
+
+float retro_ui_line_height()
+{
+    return ImGui::GetFrameHeight();
+}
+
+float retro_ui_button_width(const char* label)
+{
+    return button_width(label);
 }
