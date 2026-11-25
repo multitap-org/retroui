@@ -71,9 +71,14 @@ float retro_ui_label_column_width(float widest);
 
 // Greyed-out text with a tooltip (`help` may be nullptr).
 void retro_ui_dim_text(const char* text, const char* help);
+// The same, lined up with the controls beside it (as retro_ui_label).
+void retro_ui_dim_label(const char* text, const char* help);
 
 // Controls. Each fills the width left on its line (less the end button's
 // room inside a row, and a reserved button's). True when the value changed.
+
+// The next control is `width` wide instead (a field sized for what it holds).
+void retro_ui_next_width(float width);
 
 bool retro_ui_check(const char* id, const char* label, bool* value);
 bool retro_ui_number_field(const char* id, int32_t* value, int32_t step);
@@ -95,6 +100,7 @@ struct RetroUiEditField
     bool     digits_only    = false;   // only 0-9 can be typed (a number)
     uint32_t max_characters = 0;       // 0: as many as `buffer` holds
     bool     focus          = false;   // the keyboard focus goes to it now (typing starts at once)
+    bool     read_only      = false;   // shown (selected, scrolled) but not edited: a link to copy
 };
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
 
@@ -110,6 +116,9 @@ bool retro_ui_picker_field(const char* id, const char* hint, const char* value, 
 // retro_ui_choice_item is true when that item was picked.
 bool retro_ui_begin_choice(const char* id, const char* preview);
 bool retro_ui_choice_item(uint32_t index, const char* label, bool selected);
+// The same, also true when the item already selected is picked again (it
+// does something then: a shared folder picked again goes back to its top).
+bool retro_ui_choice_item_repick(uint32_t index, const char* label, bool selected);
 void retro_ui_end_choice();
 // Inside a choice: its list opened this frame (read what it lists afresh).
 bool retro_ui_choice_opened();
@@ -128,6 +137,16 @@ enum class RetroUiClick
     twice,  // double-clicked
 };
 RetroUiClick retro_ui_list_item_click(uint32_t index, const char* label, bool selected);
+
+// An item with `detail` against the right edge of the list's contents (a
+// file's size or date; it moves left of a scroll bar), in the item's color.
+// `dim`: both greyed out (the item can still be picked). True when clicked
+// or activated, selected or not.
+bool retro_ui_list_item_detail(uint32_t index, const char* label, bool selected, const char* detail, bool dim);
+
+// The height of a list (retro_ui_begin_list) for `rows` rows of controls,
+// its padding included.
+float retro_ui_list_height(uint32_t rows);
 
 // A long list (thousands of files) where only the items in view are drawn;
 // keyboard / gamepad navigation still reaches all of them:
@@ -204,6 +223,24 @@ struct RetroUiQuestion
     float       width = 0.0f;      // set when it opens; 0: as wide as its contents
 };
 RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking);
+
+// A modal window like the question's with contents of its own (more than
+// two answers). Call it every frame; it opens while `open`, and stays open
+// until retro_ui_close_modal (the caller decides when it's answered):
+//   if (retro_ui_begin_modal(&modal, open)) {
+//       ...; if (answered) retro_ui_close_modal();
+//       retro_ui_end_modal();
+//   }
+// Escape isn't handled: check retro_ui_key_pressed (B on a gamepad sends it).
+struct RetroUiModal
+{
+    const char* id    = nullptr;   // stable while the title changes
+    const char* title = nullptr;
+    float       width = 0.0f;      // set when it opens; 0: as wide as its contents
+};
+bool retro_ui_begin_modal(const RetroUiModal* modal, bool open);
+void retro_ui_close_modal();   // inside it: it closes (gone next frame)
+void retro_ui_end_modal();     // only when retro_ui_begin_modal was true
 
 // ---------------------------------------------------------------------------
 // Windows, text and layout. The window's frame is the theme's (light edge,
@@ -283,6 +320,12 @@ void retro_ui_label(const char* text);                     // lined up with the 
 
 void retro_ui_same_line();              // the next item goes on this line
 void retro_ui_same_line_at(float x);    // ...starting `x` from the window's left edge (a column)
+void retro_ui_same_line_gap(float gap); // ...`gap` after the last item (set apart from it)
+void retro_ui_set_cursor_x(float x);    // the next item starts `x` from the window's left edge
+                                        // (on the line it's on: centered in a column, say)
+// Empty room `width` x `height` at the cursor, as an item that draws nothing
+// (a line kept as tall as a control, a column kept as wide as its arrows).
+void retro_ui_space(float width, float height);
 void retro_ui_spacing();
 void retro_ui_separator();
 void retro_ui_indent();
@@ -301,12 +344,20 @@ float retro_ui_width_left();                 // the width left on this line
 float retro_ui_height_left();                // the height left below the cursor (in a window or an area)
 float retro_ui_cursor_y();                   // where the next item goes, down from the window's top
                                              // (what's between two of these is that tall)
+float retro_ui_cursor_x();                   // ...and right from the window's left edge
+float retro_ui_right_edge();                 // the right edge of the window's (or area's) contents,
+                                             // from its left edge: retro_ui_same_line_at(edge - width)
+                                             // ends an item `width` wide against it
 float retro_ui_line_height();                // a control's height
 float retro_ui_line_step();                  // ...and the spacing below it: rows of controls are this far apart
 float retro_ui_text_line_step();             // a line of text and the spacing below it
 float retro_ui_item_spacing();               // between two items on a line
 float retro_ui_button_width(const char* label);
 float retro_ui_font_size();                  // the current font's height (its glyphs are drawn this tall)
+
+// The toolkit's clock: seconds since it started (an animation, a COPIED shown
+// for two seconds).
+double retro_ui_seconds();
 
 // ---------------------------------------------------------------------------
 // Drawing in a window (a QR code, a picture with marks over it): a canvas
@@ -323,6 +374,18 @@ void retro_ui_canvas_outline(float x, float y, float width, float height, uint32
 // [0, v_max] of it is drawn, tinted by `argb` (0xFFFFFFFF: as it is).
 void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
                            uint32_t argb);
+// Text in the current font, its top left corner at (x, y).
+void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb);
+
+// Port LEDs and ping bars (port_indicators.h) as items on the line; `block`:
+// window pixels per retro pixel. Off LEDs and unlit bars are the palette's
+// panel_dark.
+// `count` LEDs, the one at `lit` lit (-1: none), centered on a line of text
+// as tall as the font.
+void retro_ui_port_leds(uint32_t count, int32_t lit, float block);
+// The ping bars, on an item as tall as a control, their bottoms two retro
+// pixels above its bottom; all off while not `known`.
+void retro_ui_ping_bars(bool known, uint32_t ping_ms, float block);
 
 // ---------------------------------------------------------------------------
 // Keys a window reacts to on its own (Escape closes it, a number key picks a

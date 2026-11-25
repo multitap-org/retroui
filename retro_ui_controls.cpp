@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"   // BringWindowToDisplayFront
 
+#include "port_indicators.h"
 #include "retro_ui.h"
 
 // File state, as ImGui's own (an immediate-mode GUI keeps one current
@@ -19,6 +20,8 @@
 // control in the row) and a reserved button (for the next control only).
 static float g_row_reserved = 0.0f;
 static float g_next_reserved = 0.0f;
+// The next control's width set by retro_ui_next_width (0: none).
+static float g_next_width = 0.0f;
 
 static float button_width(const char* label)
 {
@@ -30,12 +33,23 @@ static float spacing()
     return ImGui::GetStyle().ItemSpacing.x;
 }
 
-// The width the next control fills, and the reserved button is used up.
+// The width the next control fills, and the reserved button (or the width
+// set for it) is used up.
 static float take_control_width()
 {
     float width = ImGui::GetContentRegionAvail().x - g_row_reserved - g_next_reserved;
+    if (g_next_width > 0.0f)
+    {
+        width = g_next_width;
+    }
     g_next_reserved = 0.0f;
+    g_next_width = 0.0f;
     return width;
+}
+
+void retro_ui_next_width(float width)
+{
+    g_next_width = width;
 }
 
 void retro_ui_row_begin(const RetroUiRow* row)
@@ -156,6 +170,12 @@ void retro_ui_dim_text(const char* text, const char* help)
     {
         retro_ui_item_tooltip(help);
     }
+}
+
+void retro_ui_dim_label(const char* text, const char* help)
+{
+    ImGui::AlignTextToFramePadding();
+    retro_ui_dim_text(text, help);
 }
 
 bool retro_ui_check(const char* id, const char* label, bool* value)
@@ -292,6 +312,10 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
     ImGui::SetNextItemWidth(take_control_width());
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackEdit |
                                 ImGuiInputTextFlags_CallbackCharFilter;
+    if (field->read_only)
+    {
+        flags |= ImGuiInputTextFlags_ReadOnly;
+    }
     // The options aren't changed through UserData; Dear ImGui only takes a void*.
     void* user_data = const_cast<RetroUiEditField*>(field);
     retro_ui_push_field_text();
@@ -351,6 +375,14 @@ bool retro_ui_choice_item(uint32_t index, const char* label, bool selected)
     bool picked = ImGui::Selectable(label, selected);
     ImGui::PopID();
     return picked && !selected;
+}
+
+bool retro_ui_choice_item_repick(uint32_t index, const char* label, bool selected)
+{
+    ImGui::PushID(static_cast<int>(index));
+    bool picked = ImGui::Selectable(label, selected);
+    ImGui::PopID();
+    return picked;
 }
 
 void retro_ui_end_choice()
@@ -435,20 +467,39 @@ void retro_ui_end_table()
     ImGui::PopStyleVar();
 }
 
-RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking)
+bool retro_ui_begin_modal(const RetroUiModal* modal, bool open)
 {
     char title[300] = {};
-    std::snprintf(title, sizeof(title), "%s###%s", question->title != nullptr ? question->title : "", question->id);
-    if (asking && !ImGui::IsPopupOpen(title))
+    std::snprintf(title, sizeof(title), "%s###%s", modal->title != nullptr ? modal->title : "", modal->id);
+    if (open && !ImGui::IsPopupOpen(title))
     {
         ImGui::OpenPopup(title);
     }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(question->width, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(modal->width, 0.0f), ImGuiCond_Appearing);
+    return ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove);
+}
+
+void retro_ui_close_modal()
+{
+    ImGui::CloseCurrentPopup();
+}
+
+void retro_ui_end_modal()
+{
+    ImGui::EndPopup();
+}
+
+RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking)
+{
+    RetroUiModal modal = {};
+    modal.id = question->id;
+    modal.title = question->title;
+    modal.width = question->width;
     RetroUiAnswer answer = RetroUiAnswer::none;
-    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove))
+    if (retro_ui_begin_modal(&modal, asking))
     {
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextUnformatted(question->text);
@@ -469,9 +520,9 @@ RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking)
         }
         if (answer != RetroUiAnswer::none)
         {
-            ImGui::CloseCurrentPopup();
+            retro_ui_close_modal();
         }
-        ImGui::EndPopup();
+        retro_ui_end_modal();
     }
     return answer;
 }
@@ -495,6 +546,34 @@ bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const 
     }
     ImGui::PopID();
     return clicked;
+}
+
+bool retro_ui_list_item_detail(uint32_t index, const char* label, bool selected, const char* detail, bool dim)
+{
+    ImGui::PushID(static_cast<int>(index));
+    if (dim)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    }
+    float row_x = ImGui::GetCursorPosX();
+    char imgui_label[512] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###item", label);
+    bool clicked = ImGui::Selectable(imgui_label, selected);
+    // The cursor is back at the row's start, on the next line: the width
+    // left from there reaches the contents' right edge.
+    ImGui::SameLine(row_x + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(detail).x);
+    ImGui::TextUnformatted(detail);
+    if (dim)
+    {
+        ImGui::PopStyleColor();
+    }
+    ImGui::PopID();
+    return clicked;
+}
+
+float retro_ui_list_height(uint32_t rows)
+{
+    return ImGui::GetFrameHeightWithSpacing() * static_cast<float>(rows) + ImGui::GetStyle().WindowPadding.y * 2.0f;
 }
 
 RetroUiClick retro_ui_list_item_click(uint32_t index, const char* label, bool selected)
@@ -809,6 +888,21 @@ void retro_ui_same_line_at(float x)
     ImGui::SameLine(x);
 }
 
+void retro_ui_same_line_gap(float gap)
+{
+    ImGui::SameLine(0.0f, gap);
+}
+
+void retro_ui_set_cursor_x(float x)
+{
+    ImGui::SetCursorPosX(x);
+}
+
+void retro_ui_space(float width, float height)
+{
+    ImGui::Dummy(ImVec2(width, height));
+}
+
 void retro_ui_spacing()
 {
     ImGui::Spacing();
@@ -881,6 +975,16 @@ float retro_ui_cursor_y()
     return ImGui::GetCursorPosY();
 }
 
+float retro_ui_cursor_x()
+{
+    return ImGui::GetCursorPosX();
+}
+
+float retro_ui_right_edge()
+{
+    return ImGui::GetWindowContentRegionMax().x;
+}
+
 float retro_ui_line_height()
 {
     return ImGui::GetFrameHeight();
@@ -909,6 +1013,11 @@ float retro_ui_button_width(const char* label)
 float retro_ui_font_size()
 {
     return ImGui::GetFontSize();
+}
+
+double retro_ui_seconds()
+{
+    return ImGui::GetTime();
 }
 
 // ---------------------------------------------------------------------------
@@ -950,6 +1059,28 @@ void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, floa
     ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(left, top),
                                          ImVec2(left + width, top + height), ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max),
                                          retro_ui_color_imgui(argb));
+}
+
+void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb)
+{
+    ImGui::GetWindowDrawList()->AddText(ImVec2(g_canvas_x + x, g_canvas_y + y), retro_ui_color_imgui(argb), text);
+}
+
+void retro_ui_port_leds(uint32_t count, int32_t lit, float block)
+{
+    ImVec2 at = ImGui::GetCursorScreenPos();
+    float line = ImGui::GetTextLineHeight();
+    float top = at.y + std::floor((line - PORT_LED_SIZE * block) * 0.5f);
+    float width = port_indicators_draw_leds(at.x, top, block, count, lit, retro_ui_palette()->panel_dark);
+    ImGui::Dummy(ImVec2(width, line));
+}
+
+void retro_ui_ping_bars(bool known, uint32_t ping_ms, float block)
+{
+    ImVec2 at = ImGui::GetCursorScreenPos();
+    port_indicators_draw_ping(at.x, at.y + ImGui::GetFrameHeight() - block * 2.0f, block, known, ping_ms,
+                              retro_ui_palette()->panel_dark);
+    ImGui::Dummy(ImVec2(port_indicators_ping_width(block), ImGui::GetFrameHeight()));
 }
 
 // ---------------------------------------------------------------------------
