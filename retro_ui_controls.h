@@ -129,6 +129,48 @@ struct RetroUiTile
 };
 bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile);
 
+// A table with a row of headers, e.g. in a list (retro_ui_begin_list):
+//   if (retro_ui_begin_table("id", columns, count, padding)) {
+//       for each row: if (retro_ui_table_row(i, first, i == selected)) selected = i;
+//                     retro_ui_table_cell(second); ...
+//       retro_ui_end_table();
+//   }
+// `cell_padding`: the room on each side of a cell's text, across (a gap
+// between columns, so a long text doesn't run into the next one).
+struct RetroUiColumn
+{
+    const char* label = nullptr;   // its header
+    float       width = 0.0f;      // 0: what the other columns leave
+};
+bool retro_ui_begin_table(const char* id, const RetroUiColumn* columns, uint32_t count, float cell_padding);
+// A row starts: its first cell is `label`, selectable across the whole row.
+// True when clicked or activated, selected or not.
+bool retro_ui_table_row(uint32_t index, const char* label, bool selected);
+// The row's next cell.
+void retro_ui_table_cell(const char* text);
+void retro_ui_end_table();
+
+// A question that must be answered: a modal window in the middle of the
+// screen over everything, `text` wrapped, then the YES and NO buttons. Call
+// it every frame; it opens while `asking` and closes once answered. Escape
+// (B on a gamepad) answers NO.
+enum class RetroUiAnswer
+{
+    none,   // not answered (yet)
+    yes,
+    no,
+};
+struct RetroUiQuestion
+{
+    const char* id    = nullptr;   // stable while the title changes
+    const char* title = nullptr;
+    const char* text  = nullptr;
+    const char* yes   = nullptr;   // the buttons' labels
+    const char* no    = nullptr;
+    float       width = 0.0f;      // set when it opens; 0: as wide as its contents
+};
+RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking);
+
 // ---------------------------------------------------------------------------
 // Windows, text and layout. The window's frame is the theme's (light edge,
 // pixel X); positions and sizes are in window pixels.
@@ -219,6 +261,8 @@ void retro_ui_pop_id();
 
 float retro_ui_width_left();                 // the width left on this line
 float retro_ui_height_left();                // the height left below the cursor (in a window or an area)
+float retro_ui_cursor_y();                   // where the next item goes, down from the window's top
+                                             // (what's between two of these is that tall)
 float retro_ui_line_height();                // a control's height
 float retro_ui_line_step();                  // ...and the spacing below it: rows of controls are this far apart
 float retro_ui_text_line_step();             // a line of text and the spacing below it

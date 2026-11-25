@@ -376,6 +376,95 @@ bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
     return chosen;
 }
 
+// retro_ui_end_table pops the padding retro_ui_begin_table pushed (only when it's open).
+bool retro_ui_begin_table(const char* id, const RetroUiColumn* columns, uint32_t count, float cell_padding)
+{
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(cell_padding, ImGui::GetStyle().CellPadding.y));
+    if (!ImGui::BeginTable(id, static_cast<int>(count), ImGuiTableFlags_SizingFixedFit))
+    {
+        ImGui::PopStyleVar();
+        return false;
+    }
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (columns[i].width > 0.0f)
+        {
+            ImGui::TableSetupColumn(columns[i].label, ImGuiTableColumnFlags_WidthFixed, columns[i].width);
+        }
+        else
+        {
+            ImGui::TableSetupColumn(columns[i].label, ImGuiTableColumnFlags_WidthStretch);
+        }
+    }
+    ImGui::TableHeadersRow();
+    return true;
+}
+
+bool retro_ui_table_row(uint32_t index, const char* label, bool selected)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::PushID(static_cast<int>(index));
+    char imgui_label[512] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###row", label);
+    bool clicked = ImGui::Selectable(imgui_label, selected, ImGuiSelectableFlags_SpanAllColumns);
+    ImGui::PopID();
+    return clicked;
+}
+
+void retro_ui_table_cell(const char* text)
+{
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(text);
+}
+
+void retro_ui_end_table()
+{
+    ImGui::EndTable();
+    ImGui::PopStyleVar();
+}
+
+RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking)
+{
+    char title[300] = {};
+    std::snprintf(title, sizeof(title), "%s###%s", question->title != nullptr ? question->title : "", question->id);
+    if (asking && !ImGui::IsPopupOpen(title))
+    {
+        ImGui::OpenPopup(title);
+    }
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
+                            ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(question->width, 0.0f), ImGuiCond_Appearing);
+    RetroUiAnswer answer = RetroUiAnswer::none;
+    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove))
+    {
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(question->text);
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape))   // (B on a gamepad sends Escape while a popup is up)
+        {
+            answer = RetroUiAnswer::no;
+        }
+        if (retro_ui_button(question->yes))
+        {
+            answer = RetroUiAnswer::yes;
+        }
+        ImGui::SameLine();
+        if (retro_ui_button(question->no))
+        {
+            answer = RetroUiAnswer::no;
+        }
+        if (answer != RetroUiAnswer::none)
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    return answer;
+}
+
 bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note)
 {
     ImGui::PushID(static_cast<int>(index));
@@ -679,6 +768,11 @@ float retro_ui_width_left()
 float retro_ui_height_left()
 {
     return ImGui::GetContentRegionAvail().y;
+}
+
+float retro_ui_cursor_y()
+{
+    return ImGui::GetCursorPosY();
 }
 
 float retro_ui_line_height()
