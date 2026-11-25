@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-struct ImFont;
+#include "retro_ui_font.h"
 struct ImVec4;
 
 // The colors of the whole UI (0xAARRGGBB; alpha is always FF). Themes are
@@ -110,14 +110,14 @@ struct RetroUiMenu
 // RETRO_UI_MENU_NONE. `open_first_menu`: open menus[0] now, with the
 // keyboard / gamepad focus on its first item (to start navigating without a
 // mouse).
-int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* menus, int32_t menu_count,
+int32_t retro_ui_menu_bar(RetroUiFont* pixel_font, int32_t scale, const RetroUiMenu* menus, int32_t menu_count,
                           bool open_first_menu);
 
 // One line of text at the bottom left of the window, behind other windows, in
 // the pixel font with a drop shadow.
-void retro_ui_status_line(ImFont* pixel_font, int32_t scale, const char* text);
+void retro_ui_status_line(RetroUiFont* pixel_font, int32_t scale, const char* text);
 // The same, starting `left` retro pixels from the left (past the ports' tabs).
-void retro_ui_status_line_from(ImFont* pixel_font, int32_t scale, const char* text, float left);
+void retro_ui_status_line_from(RetroUiFont* pixel_font, int32_t scale, const char* text, float left);
 
 // The palette everything is drawn with now.
 const RetroUiPalette* retro_ui_palette();
@@ -145,7 +145,7 @@ float retro_ui_ease_out(uint64_t now_ms, uint64_t started_ms, uint64_t duration_
 // line). Shapes and text in window pixels, colors ARGB (alpha used). A line
 // of text is 7 retro pixels: the glyphs start one below `y`. Pair begin / end
 // and clip / unclip.
-void  retro_ui_begin_layer(const char* id, ImFont* pixel_font, int32_t scale, bool front);
+void  retro_ui_begin_layer(const char* id, RetroUiFont* pixel_font, int32_t scale, bool front);
 void  retro_ui_end_layer();
 void  retro_ui_layer_rect(float x, float y, float width, float height, uint32_t argb);
 void  retro_ui_layer_text(float x, float y, const char* text, uint32_t argb);
@@ -160,7 +160,7 @@ void  retro_ui_layer_unclip();
 
 // The retro look for any window and widget between push and pop: palette,
 // pixel font at `scale`, square corners, spacing in retro pixels. Pair them.
-void retro_ui_push_theme(ImFont* pixel_font, int32_t scale);
+void retro_ui_push_theme(RetroUiFont* pixel_font, int32_t scale);
 void retro_ui_pop_theme();
 
 // Call right after ImGui::Begin() of a themed window: a light edge on all four sides and

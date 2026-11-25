@@ -14,7 +14,7 @@
 
 #include "retro_ui.h"
 
-struct ImFont;
+#include "retro_ui_font.h"
 struct TouchFingers;
 
 // Where the gamepad's focus is this frame (a button reports itself while
@@ -30,7 +30,7 @@ struct RetroPad;
 
 struct TouchUi
 {
-    ImFont*        font    = nullptr;
+    RetroUiFont*        font    = nullptr;
     int32_t        scale   = 1;          // window pixels per retro pixel
     RetroUiPalette palette = {};
     // Every finger, for the pads (touch_fingers.h); nullptr while something
