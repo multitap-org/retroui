@@ -218,6 +218,76 @@ bool retro_ui_text_field(const char* id, const char* hint, const char* value, ch
     return done;
 }
 
+// UTF-8 characters in `text` (continuation bytes 10xxxxxx don't count).
+static uint32_t character_count(const char* text, int32_t length)
+{
+    uint32_t count = 0;
+    for (int32_t i = 0; i < length; i++)
+    {
+        if ((static_cast<unsigned char>(text[i]) & 0xC0u) != 0x80u)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+// Byte offset where character number `characters` starts (or the end).
+static int32_t offset_of_character(const char* text, int32_t length, uint32_t characters)
+{
+    uint32_t count = 0;
+    for (int32_t i = 0; i < length; i++)
+    {
+        if ((static_cast<unsigned char>(text[i]) & 0xC0u) != 0x80u)
+        {
+            if (count == characters)
+            {
+                return i;
+            }
+            count++;
+        }
+    }
+    return length;
+}
+
+// Dear ImGui limits a field in bytes; the caller counts characters. Numbers
+// take digits only. UserData: the RetroUiEditField.
+static int edit_field_callback(ImGuiInputTextCallbackData* data)
+{
+    const RetroUiEditField* field = static_cast<const RetroUiEditField*>(data->UserData);
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackCharFilter)
+    {
+        bool digit = data->EventChar >= '0' && data->EventChar <= '9';
+        return field->digits_only && !digit ? 1 : 0;   // 1 = drop the character
+    }
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackEdit && field->max_characters > 0 &&
+        character_count(data->Buf, data->BufTextLen) > field->max_characters)
+    {
+        int32_t cut = offset_of_character(data->Buf, data->BufTextLen, field->max_characters);
+        data->DeleteChars(cut, data->BufTextLen - cut);
+    }
+    return 0;
+}
+
+bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field)
+{
+    ImGui::PushID(id);
+    if (field->focus)
+    {
+        ImGui::SetKeyboardFocusHere();
+    }
+    ImGui::SetNextItemWidth(take_control_width());
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackEdit |
+                                ImGuiInputTextFlags_CallbackCharFilter;
+    // The options aren't changed through UserData; Dear ImGui only takes a void*.
+    void* user_data = const_cast<RetroUiEditField*>(field);
+    retro_ui_push_field_text();
+    bool entered = ImGui::InputText("##edit", buffer, buffer_size, flags, edit_field_callback, user_data);
+    retro_ui_pop_field_text();
+    ImGui::PopID();
+    return entered;
+}
+
 bool retro_ui_picker_field(const char* id, const char* hint, const char* value, const char* help)
 {
     // Read-only: it looks like any other field (and a long path can be

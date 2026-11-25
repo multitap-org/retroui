@@ -84,6 +84,18 @@ bool retro_ui_color_field(const char* id, uint32_t* argb);
 // edit ends; the new text is then in `edited`.
 bool retro_ui_text_field(const char* id, const char* hint, const char* value, char* edited, size_t edited_size);
 
+// A text field that edits `buffer` in place (the caller keeps the text while
+// it's typed). True when Enter was pressed in it (the caller acts on the text:
+// OK). Lengths are counted in UTF-8 characters, not bytes, as a core asking
+// for text counts them.
+struct RetroUiEditField
+{
+    bool     digits_only    = false;   // only 0-9 can be typed (a number)
+    uint32_t max_characters = 0;       // 0: as many as `buffer` holds
+    bool     focus          = false;   // the keyboard focus goes to it now (typing starts at once)
+};
+bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
+
 // A read-only field showing `value` (or `hint` while empty) and "..." after
 // it. True when either was clicked (the caller opens a picker).
 bool retro_ui_picker_field(const char* id, const char* hint, const char* value, const char* help);
