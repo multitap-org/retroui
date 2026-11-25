@@ -449,6 +449,97 @@ void retro_ui_end_choice()
     ImGui::PopID();
 }
 
+int32_t retro_ui_equal_buttons(const RetroUiRowButton* buttons, uint32_t count, float width)
+{
+    if (count == 0)
+    {
+        return -1;
+    }
+    float row = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+    float gaps = spacing() * static_cast<float>(count - 1);
+    // Whole pixels; the last column takes what rounding left, so the row
+    // ends exactly at `width` (rows of other counts end there too).
+    float column = std::floor((row - gaps) / static_cast<float>(count));
+    int32_t pressed = -1;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (i > 0)
+        {
+            ImGui::SameLine();
+        }
+        float this_width = i + 1 < count ? column : row - gaps - column * static_cast<float>(count - 1);
+        retro_ui_begin_disabled(!buttons[i].enabled);
+        char imgui_label[300] = {};
+        std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", buttons[i].label, buttons[i].id);
+        if (retro_ui_button_sized(imgui_label, this_width, 0.0f))
+        {
+            pressed = static_cast<int32_t>(i);
+        }
+        if (buttons[i].help != nullptr)
+        {
+            retro_ui_disabled_item_tooltip(buttons[i].help);
+        }
+        retro_ui_end_disabled();
+    }
+    return pressed;
+}
+
+float retro_ui_equal_buttons_width(const RetroUiRowButton* buttons, uint32_t count, uint32_t columns)
+{
+    float widest = 0.0f;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        float width = button_width(buttons[i].label);
+        widest = width > widest ? width : widest;
+    }
+    return columns > 0 ? widest * static_cast<float>(columns) + spacing() * static_cast<float>(columns - 1) : 0.0f;
+}
+
+// A tile's picture and label, over the button just drawn (its label hidden).
+static void draw_tile_picture(const RetroUiTile* tile, const char* label)
+{
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    float pad = std::floor(style.FramePadding.y);
+    float left = std::floor(min.x) + pad;
+    float top = std::floor(min.y) + pad;
+    float area_width = std::floor(max.x) - pad - left;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddRectFilled(ImVec2(left, top), ImVec2(left + area_width, top + tile->picture_height),
+                             retro_ui_color_imgui(0xFF000000u));
+    bool disabled = (ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0;
+    const RetroUiPalette* palette = retro_ui_palette();
+    if (tile->texture != 0)
+    {
+        float x = std::floor(left + (area_width - tile->image_width) * 0.5f);
+        float y = std::floor(top + (tile->picture_height - tile->image_height) * 0.5f);
+        // Bilinear for this picture only, then back to the window's nearest
+        // (the pixel font's).
+        const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
+        draw_list->AddImage(static_cast<ImTextureID>(tile->texture), ImVec2(x, y),
+                            ImVec2(x + tile->image_width, y + tile->image_height), ImVec2(0.0f, 0.0f),
+                            ImVec2(tile->u_max, tile->v_max));
+        draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);
+    }
+    else if (tile->empty != nullptr)
+    {
+        ImVec2 text = ImGui::CalcTextSize(tile->empty);
+        draw_list->AddText(ImVec2(std::floor(left + (area_width - text.x) * 0.5f),
+                                  std::floor(top + (tile->picture_height - text.y) * 0.5f)),
+                           retro_ui_color_imgui(palette->text_disabled), tile->empty);
+    }
+    // The label in the room left under the picture, centered.
+    const char* end = ImGui::FindRenderedTextEnd(label);
+    ImVec2 text = ImGui::CalcTextSize(label, end);
+    float below = top + tile->picture_height;
+    float x = std::floor(min.x + (max.x - min.x - text.x) * 0.5f);
+    float y = std::floor(below + (max.y - pad - below - text.y) * 0.5f);
+    draw_list->AddText(ImVec2(x, y), retro_ui_color_imgui(disabled ? palette->text_disabled : palette->button_text),
+                       label, end);
+}
+
 bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
 {
     ImGui::PushID(id);
@@ -464,7 +555,17 @@ bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
     {
         ImGui::SetKeyboardFocusHere();
     }
-    bool chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
+    bool chosen = false;
+    if (tile->picture_height > 0.0f)
+    {
+        // The button without its label: the picture and the label go over it.
+        chosen = retro_ui_button_sized("##tile", tile->width, tile->height) || ImGui::IsItemFocused();
+        draw_tile_picture(tile, label);
+    }
+    else
+    {
+        chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
+    }
     if (tile->chosen)
     {
         ImGui::PopStyleVar();
@@ -1227,6 +1328,18 @@ void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, floa
     ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(left, top),
                                          ImVec2(left + width, top + height), ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max),
                                          retro_ui_color_imgui(argb));
+}
+
+void retro_ui_canvas_image_smooth(uint64_t texture, float x, float y, float width, float height, float u_max,
+                                  float v_max, uint32_t argb)
+{
+    // Bilinear for this image only, then back to the window's nearest (the
+    // pixel font's: retro_ui_begin_window).
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
+    retro_ui_canvas_image(texture, x, y, width, height, u_max, v_max, argb);
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);
 }
 
 void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb)

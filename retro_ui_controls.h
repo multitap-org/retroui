@@ -190,9 +190,32 @@ struct RetroUiEndButton
 };
 int32_t retro_ui_end_buttons(const RetroUiEndButton* buttons, uint32_t count, bool same_line);
 
+// Buttons sharing the width of a line equally, whatever their labels: a row
+// of `count` columns `width` wide (0: the width left on the line), the
+// spacing between them included, so rows of different counts over the same
+// width line up at both ends (QUICK MENU's actions, four a row, and SAVE /
+// LOAD / GAME DVR, three). Returns the index of the one pressed, or -1.
+struct RetroUiRowButton
+{
+    const char* id      = nullptr;   // stable while the label changes (the language)
+    const char* label   = nullptr;
+    bool        enabled = true;      // false: greyed out
+    const char* help    = nullptr;   // its tooltip, shown also while greyed out (nullptr: none)
+};
+int32_t retro_ui_equal_buttons(const RetroUiRowButton* buttons, uint32_t count, float width);
+// The width a row of `columns` equal buttons needs so the widest of these
+// `count` labels fits in a column (the spacing between columns included).
+float retro_ui_equal_buttons_width(const RetroUiRowButton* buttons, uint32_t count, uint32_t columns);
+
 // A button of a set where one is chosen (QUICK MENU's save slots): `label`
 // on a `width` x `height` button. True when pressed, and while it has the
 // keyboard focus: the arrows move the choice along the set.
+//
+// With a picture (`picture_height` > 0): a black area that tall across the
+// top, the label under it. `texture` (the toolkit's texture id; 0: none,
+// `empty` dimmed in the middle instead) is drawn `image_width` x
+// `image_height` in the middle of that area, [0, u_max] x [0, v_max] of it,
+// sampled bilinear (a thumbnail smaller than its picture).
 struct RetroUiTile
 {
     float    width  = 0.0f;
@@ -201,6 +224,14 @@ struct RetroUiTile
     bool     chosen = false;   // edged, `edge` pixels wide
     float    edge   = 0.0f;
     bool     focus  = false;   // the keyboard focus goes to it now (one chosen otherwise: 1-9, opening)
+
+    float       picture_height = 0.0f;
+    uint64_t    texture        = 0;
+    float       image_width    = 0.0f;
+    float       image_height   = 0.0f;
+    float       u_max          = 1.0f;
+    float       v_max          = 1.0f;
+    const char* empty          = nullptr;   // shown without a texture (nullptr: nothing)
 };
 bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile);
 
@@ -438,6 +469,12 @@ void retro_ui_canvas_outline(float x, float y, float width, float height, uint32
 // [0, v_max] of it is drawn, tinted by `argb` (0xFFFFFFFF: as it is).
 void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
                            uint32_t argb);
+// The same, sampled bilinear instead of nearest (the rest of the window stays
+// nearest). With a texture already scaled up by a whole number with nearest,
+// this is sharp bilinear: sharp pixels, soft only where a pixel falls
+// between two screen pixels.
+void retro_ui_canvas_image_smooth(uint64_t texture, float x, float y, float width, float height, float u_max,
+                                  float v_max, uint32_t argb);
 // Text in the current font, its top left corner at (x, y).
 void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb);
 // A rectangle anywhere on the window being drawn, in pixels from the window's
