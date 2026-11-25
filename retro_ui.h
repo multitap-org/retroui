@@ -73,6 +73,13 @@ const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme);
 // dim the screen behind them: the frontend draws one backdrop of its own.
 void retro_ui_set_palette(const RetroUiPalette* palette);
 
+// `base`'s red twin, for a warning window (piccolo's UNSIGNED BUILD dialog,
+// Andrés 2026-11-25): every face, edge and highlight keeps its lightness and
+// moves to red (with at least some color, so a grey theme turns red too);
+// text, shadows and the cursor stay as they are. Draw the window between
+// retro_ui_set_palette(&red) and setting the palette back.
+void retro_ui_danger_palette(const RetroUiPalette* base, RetroUiPalette* out);
+
 // The scale for a window: the biggest whole block that leaves at least
 // 640 x 360 retro pixels, at least 1 (3 on a 1920 x 1080 window). An upright
 // window needs 360 x 640 instead (3 on a 1080 x 2340 phone, either way up).
