@@ -69,7 +69,18 @@ void retro_ui_row_begin(const RetroUiRow* row)
     {
         ImGui::AlignTextToFramePadding();
         float start = ImGui::GetCursorPosX();
+        bool clip = row->clip_label && row->label_width > 0.0f;
+        if (clip)
+        {
+            ImVec2 corner = ImGui::GetCursorScreenPos();
+            ImGui::PushClipRect(corner, ImVec2(corner.x + row->label_width - spacing(), corner.y + ImGui::GetFrameHeight()),
+                                true);
+        }
         ImGui::TextUnformatted(row->label);
+        if (clip)
+        {
+            ImGui::PopClipRect();
+        }
         if (row->help != nullptr)
         {
             retro_ui_item_tooltip(row->help);
@@ -609,9 +620,10 @@ constexpr int32_t SCROLL_AREA_DEPTH_MAX = 8;
 static bool g_scroll_area_visible[SCROLL_AREA_DEPTH_MAX] = {};
 static int32_t g_scroll_area_depth = 0;
 
-bool retro_ui_begin_scroll_area(const char* id, float width, float height)
+// Both push the child's background color (ARGB; 0: none); retro_ui_end_scroll_area pops it.
+static bool begin_scroll_area(const char* id, float width, float height, uint32_t background)
 {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, retro_ui_color_vec4(background));
     bool visible = ImGui::BeginChild(id, ImVec2(width, height));
     if (visible)
     {
@@ -624,6 +636,16 @@ bool retro_ui_begin_scroll_area(const char* id, float width, float height)
     }
     g_scroll_area_depth++;
     return visible;
+}
+
+bool retro_ui_begin_scroll_area(const char* id, float width, float height)
+{
+    return begin_scroll_area(id, width, height, 0x00000000u);
+}
+
+bool retro_ui_begin_scroll_field(const char* id, float width, float height)
+{
+    return begin_scroll_area(id, width, height, retro_ui_palette()->field_face);
 }
 
 void retro_ui_end_scroll_area()

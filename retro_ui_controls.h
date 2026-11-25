@@ -39,6 +39,8 @@ struct RetroUiRow
     const char* label         = nullptr;   // nullptr: none (a checkbox carries its own)
     const char* help          = nullptr;   // the label's tooltip; nullptr: none
     float       label_width   = 0.0f;      // the label column; 0: the control follows the label
+    bool        clip_label    = false;     // a label wider than its column is cut there, not
+                                           // drawn under the control (give the whole one in `help`)
     bool        enabled       = true;      // false: greyed out, `disabled_help` as the tooltip
     const char* disabled_help = nullptr;
     const char* end_button    = nullptr;   // nullptr: none, and no room kept
@@ -227,6 +229,10 @@ bool retro_ui_section_header(const char* id, const char* label, bool open_at_fir
 // retro_ui_end_scroll_area() either way.
 bool retro_ui_begin_scroll_area(const char* id, float width, float height);
 void retro_ui_end_scroll_area();
+// The same with the field color behind it (no edge, no padding): a block of
+// rows set apart from the rest of the window (the running core's options).
+// Ended by retro_ui_end_scroll_area() too.
+bool retro_ui_begin_scroll_field(const char* id, float width, float height);
 
 // What's drawn between these is one block: retro_ui_same_line() after it puts
 // the next item right of all of it, at its top (a column beside another).
