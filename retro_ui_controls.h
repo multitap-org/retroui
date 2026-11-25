@@ -174,3 +174,22 @@ float retro_ui_font_size();                  // the current font's height (its g
 // are ARGB (alpha used).
 void retro_ui_canvas(float width, float height);
 void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t argb);
+
+// ---------------------------------------------------------------------------
+// Keys a window reacts to on its own (Escape closes it, a number key picks a
+// slot), beyond the interface keys the frame loop drives every window with.
+
+enum class RetroUiKey
+{
+    escape,
+    enter,
+    space,
+    tab,
+    backspace,
+    digit_0, digit_1, digit_2, digit_3, digit_4, digit_5, digit_6, digit_7, digit_8, digit_9,
+    a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z,
+};
+
+// `key` went down this frame. `repeat`: also true again while it's held, at
+// the keyboard's repeat rate (as a text field repeats a held key).
+bool retro_ui_key_pressed(RetroUiKey key, bool repeat);

@@ -574,3 +574,44 @@ void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t 
     ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(left, top), ImVec2(left + width, top + height),
                                               retro_ui_color_imgui(argb));
 }
+
+// ---------------------------------------------------------------------------
+// Keys.
+
+static ImGuiKey imgui_key(RetroUiKey key)
+{
+    // Digits and letters are in order in both enums.
+    int32_t index = static_cast<int32_t>(key);
+    int32_t digit_0 = static_cast<int32_t>(RetroUiKey::digit_0);
+    int32_t letter_a = static_cast<int32_t>(RetroUiKey::a);
+    if (index >= letter_a && index <= static_cast<int32_t>(RetroUiKey::z))
+    {
+        return static_cast<ImGuiKey>(static_cast<int32_t>(ImGuiKey_A) + index - letter_a);
+    }
+    if (index >= digit_0 && index <= static_cast<int32_t>(RetroUiKey::digit_9))
+    {
+        return static_cast<ImGuiKey>(static_cast<int32_t>(ImGuiKey_0) + index - digit_0);
+    }
+    switch (key)
+    {
+    case RetroUiKey::escape:
+        return ImGuiKey_Escape;
+    case RetroUiKey::enter:
+        return ImGuiKey_Enter;
+    case RetroUiKey::space:
+        return ImGuiKey_Space;
+    case RetroUiKey::tab:
+        return ImGuiKey_Tab;
+    case RetroUiKey::backspace:
+        return ImGuiKey_Backspace;
+    default:
+        break;
+    }
+    return ImGuiKey_None;
+}
+
+bool retro_ui_key_pressed(RetroUiKey key, bool repeat)
+{
+    ImGuiKey imgui = imgui_key(key);
+    return imgui != ImGuiKey_None && ImGui::IsKeyPressed(imgui, repeat);
+}
