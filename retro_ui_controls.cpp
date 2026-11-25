@@ -303,7 +303,10 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
         ImGui::SetNextWindowSize(ImVec2(window->width, window->height),
                                  window->resizable ? ImGuiCond_FirstUseEver : ImGuiCond_Always);
     }
-    if (window->width <= 0.0f && window->height <= 0.0f)
+    // A side left at 0 follows the contents every frame (the other one, when
+    // given, stays as set: ImGui leaves a side set by SetNextWindowSize).
+    bool sized = window->width > 0.0f && window->height > 0.0f;
+    if ((window->width <= 0.0f && window->height <= 0.0f) || (!sized && !window->resizable))
     {
         flags |= ImGuiWindowFlags_AlwaysAutoResize;
     }
