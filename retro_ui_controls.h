@@ -111,11 +111,43 @@ bool retro_ui_picker_field(const char* id, const char* hint, const char* value, 
 bool retro_ui_begin_choice(const char* id, const char* preview);
 bool retro_ui_choice_item(uint32_t index, const char* label, bool selected);
 void retro_ui_end_choice();
+// Inside a choice: its list opened this frame (read what it lists afresh).
+bool retro_ui_choice_opened();
 
 // An item of a list (retro_ui_begin_list): `label`, highlighted while
 // `selected`, and `note` (nullptr: none) dimmed at the list's right end (e.g.
 // PAIRED). True when it was clicked or activated, selected or not.
 bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note);
+
+// The same (no note), telling a double click apart: `twice` on its second
+// click (it opens or loads the item; the first one was `once`).
+enum class RetroUiClick
+{
+    none,
+    once,   // clicked or activated
+    twice,  // double-clicked
+};
+RetroUiClick retro_ui_list_item_click(uint32_t index, const char* label, bool selected);
+
+// A long list (thousands of files) where only the items in view are drawn;
+// keyboard / gamepad navigation still reaches all of them:
+//   retro_ui_begin_clipped(count);
+//   while (retro_ui_clipped_step(&first, &end)) { draw items first..end-1 }
+// One at a time (not nested); the steps end it.
+void retro_ui_begin_clipped(uint32_t count);
+bool retro_ui_clipped_step(uint32_t* first, uint32_t* end);
+
+// Buttons at the right end of a line, in order. `same_line`: on the line of
+// the last item (e.g. after a check box); otherwise on a line of their own.
+// Returns the index of the one pressed, or -1.
+struct RetroUiEndButton
+{
+    const char* id      = nullptr;
+    const char* label   = nullptr;
+    bool        shown   = true;    // false: not drawn, and no room kept
+    bool        enabled = true;    // false: greyed out
+};
+int32_t retro_ui_end_buttons(const RetroUiEndButton* buttons, uint32_t count, bool same_line);
 
 // A button of a set where one is chosen (QUICK MENU's save slots): `label`
 // on a `width` x `height` button. True when pressed, and while it has the

@@ -476,6 +476,11 @@ RetroUiAnswer retro_ui_question(const RetroUiQuestion* question, bool asking)
     return answer;
 }
 
+bool retro_ui_choice_opened()
+{
+    return ImGui::IsWindowAppearing();   // the current window is the choice's list
+}
+
 bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note)
 {
     ImGui::PushID(static_cast<int>(index));
@@ -490,6 +495,85 @@ bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const 
     }
     ImGui::PopID();
     return clicked;
+}
+
+RetroUiClick retro_ui_list_item_click(uint32_t index, const char* label, bool selected)
+{
+    ImGui::PushID(static_cast<int>(index));
+    char imgui_label[512] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###item", label);
+    RetroUiClick click = RetroUiClick::none;
+    if (ImGui::Selectable(imgui_label, selected, ImGuiSelectableFlags_AllowDoubleClick))
+    {
+        click = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) ? RetroUiClick::twice : RetroUiClick::once;
+    }
+    ImGui::PopID();
+    return click;
+}
+
+// The clipped list being drawn (one at a time).
+static ImGuiListClipper g_clipper;
+
+void retro_ui_begin_clipped(uint32_t count)
+{
+    g_clipper.Begin(static_cast<int>(count));
+}
+
+bool retro_ui_clipped_step(uint32_t* first, uint32_t* end)
+{
+    if (!g_clipper.Step())
+    {
+        return false;   // Step ended the clipper
+    }
+    *first = static_cast<uint32_t>(g_clipper.DisplayStart);
+    *end = static_cast<uint32_t>(g_clipper.DisplayEnd);
+    return true;
+}
+
+int32_t retro_ui_end_buttons(const RetroUiEndButton* buttons, uint32_t count, bool same_line)
+{
+    float width = 0.0f;
+    bool first = true;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (buttons[i].shown)
+        {
+            width += button_width(buttons[i].label) + (first ? 0.0f : spacing());
+            first = false;
+        }
+    }
+    float x = ImGui::GetContentRegionMax().x - width;
+    if (same_line)
+    {
+        ImGui::SameLine(x);
+    }
+    else
+    {
+        ImGui::SetCursorPosX(x);
+    }
+    int32_t pressed = -1;
+    first = true;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (!buttons[i].shown)
+        {
+            continue;
+        }
+        if (!first)
+        {
+            ImGui::SameLine();
+        }
+        first = false;
+        retro_ui_begin_disabled(!buttons[i].enabled);
+        ImGui::PushID(buttons[i].id);
+        if (retro_ui_button(buttons[i].label))
+        {
+            pressed = static_cast<int32_t>(i);
+        }
+        ImGui::PopID();
+        retro_ui_end_disabled();
+    }
+    return pressed;
 }
 
 // ---------------------------------------------------------------------------
