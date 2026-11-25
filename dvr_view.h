@@ -38,7 +38,7 @@ constexpr uint32_t DVR_VIEW_LABEL_MAX  = 16;
 
 struct DvrViewThumb
 {
-    uint64_t texture = 0;      // an ImTextureID; 0: not made yet (an empty card)
+    uint64_t texture = 0;      // the GUI's handle; 0: not made yet (an empty card)
     float    u_max   = 1.0f;   // the part of the texture with the picture
     float    v_max   = 1.0f;
     char     label[DVR_VIEW_LABEL_MAX] = {};   // its time ("-0:30")

@@ -150,7 +150,7 @@ void  retro_ui_end_layer();
 void  retro_ui_layer_rect(float x, float y, float width, float height, uint32_t argb);
 void  retro_ui_layer_text(float x, float y, const char* text, uint32_t argb);
 float retro_ui_layer_text_width(const char* text);
-// A texture (an ImTextureID, e.g. VideoTexture::imgui_id) stretched over the
+// A texture (the GUI's handle, e.g. VideoTexture::ui_texture) stretched over the
 // rectangle; [0, u_max] x [0, v_max] of it is drawn, tinted by `argb`
 // (0xFFFFFFFF: as it is).
 void  retro_ui_layer_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,

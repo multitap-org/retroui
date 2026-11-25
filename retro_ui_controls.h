@@ -434,7 +434,7 @@ void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t 
 // A rectangle's outline, `thickness` pixels wide.
 void retro_ui_canvas_outline(float x, float y, float width, float height, uint32_t argb, float thickness);
 // A texture (as retro_ui_layer_image: the toolkit's texture id, e.g.
-// VideoTexture::imgui_id) stretched over the rectangle; [0, u_max] x
+// VideoTexture::ui_texture) stretched over the rectangle; [0, u_max] x
 // [0, v_max] of it is drawn, tinted by `argb` (0xFFFFFFFF: as it is).
 void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
                            uint32_t argb);
