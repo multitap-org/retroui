@@ -118,23 +118,37 @@ bool retro_ui_row_end(const RetroUiRow* row)
     bool pressed = false;
     if (!row->enabled)
     {
-        ImGui::EndDisabled();
         // A disabled item needs AllowWhenDisabled for its tooltip.
         if (row->disabled_help != nullptr && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         {
             retro_ui_tooltip(row->disabled_help);
         }
     }
-    else if (row->end_button != nullptr && !row->end_button_hidden)
+    // The end button fills the room kept for it: greyed out while hidden or
+    // while the row is disabled, so every row ends at the right edge.
+    if (row->end_button != nullptr)
     {
+        bool usable = row->enabled && !row->end_button_hidden;
         ImGui::SameLine(ImGui::GetContentRegionMax().x - button_width(row->end_button));
         ImGui::PushID("end");
-        pressed = retro_ui_button(row->end_button);
+        if (row->enabled && !usable)
+        {
+            ImGui::BeginDisabled();
+        }
+        pressed = retro_ui_button(row->end_button) && usable;
+        if (row->enabled && !usable)
+        {
+            ImGui::EndDisabled();
+        }
         ImGui::PopID();
-        if (row->end_button_help != nullptr)
+        if (usable && row->end_button_help != nullptr)
         {
             retro_ui_item_tooltip(row->end_button_help);
         }
+    }
+    if (!row->enabled)
+    {
+        ImGui::EndDisabled();
     }
     g_row_reserved = 0.0f;
     g_next_reserved = 0.0f;
