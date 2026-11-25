@@ -360,6 +360,7 @@ bool retro_ui_section_header_open(const char* id, const char* label, bool open);
 // `select`: the tab is chosen now (PAGE LEFT / RIGHT, retro_ui_tab_switch, or
 // a window opened on it); otherwise the user's click chooses. Bars can nest
 // (a tab with tabs of its own). Ids stay while the labels change (the language).
+// The tabs split the bar's full width equally, whatever their labels.
 bool retro_ui_begin_tabs(const char* id);
 void retro_ui_end_tabs();        // only when retro_ui_begin_tabs was true
 bool retro_ui_begin_tab(const char* id, const char* label, bool select);   // true while it's the one shown
