@@ -115,6 +115,20 @@ void retro_ui_end_choice();
 // PAIRED). True when it was clicked or activated, selected or not.
 bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note);
 
+// A button of a set where one is chosen (QUICK MENU's save slots): `label`
+// on a `width` x `height` button. True when pressed, and while it has the
+// keyboard focus: the arrows move the choice along the set.
+struct RetroUiTile
+{
+    float    width  = 0.0f;
+    float    height = 0.0f;
+    uint32_t face   = 0;       // 0xAARRGGBB; 0: the theme's (another color sets it apart, e.g. a slot in use)
+    bool     chosen = false;   // edged, `edge` pixels wide
+    float    edge   = 0.0f;
+    bool     focus  = false;   // the keyboard focus goes to it now (one chosen otherwise: 1-9, opening)
+};
+bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile);
+
 // ---------------------------------------------------------------------------
 // Windows, text and layout. The window's frame is the theme's (light edge,
 // pixel X); positions and sizes are in window pixels.
@@ -132,6 +146,9 @@ struct RetroUiWindow
     bool        closable  = true;      // the X in the title bar
     bool        resizable = false;
     bool        focus     = false;     // given the focus every frame (a question that must be answered)
+    bool        focus_on_open = false; // given the focus when it opens (keys reach it at once)
+    bool        scrolls   = true;      // false: never scrolls itself, no scroll bar (its parts
+                                       // that need to scroll do it in their own areas)
 };
 
 // Draws the window's frame. True while its contents show; call
@@ -139,6 +156,13 @@ struct RetroUiWindow
 // (may be nullptr).
 bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* closed);
 void retro_ui_window_end();
+
+// The window being drawn opened this frame (or reopened after being closed).
+bool retro_ui_window_appearing();
+
+// The window being drawn, or a part of it, has the keyboard focus: keys it
+// reacts to on its own (retro_ui_key_pressed) are meant for it.
+bool retro_ui_window_focused();
 
 // The window being drawn goes above every other one, now (an editor that
 // must not hide under the menus). Any window: retroui's or an overlay
@@ -194,6 +218,7 @@ void retro_ui_push_index(uint32_t index);
 void retro_ui_pop_id();
 
 float retro_ui_width_left();                 // the width left on this line
+float retro_ui_height_left();                // the height left below the cursor (in a window or an area)
 float retro_ui_line_height();                // a control's height
 float retro_ui_line_step();                  // ...and the spacing below it: rows of controls are this far apart
 float retro_ui_text_line_step();             // a line of text and the spacing below it

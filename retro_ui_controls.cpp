@@ -348,6 +348,34 @@ void retro_ui_end_choice()
     ImGui::PopID();
 }
 
+bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
+{
+    ImGui::PushID(id);
+    if (tile->face != 0)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Button, retro_ui_color_vec4(tile->face));
+    }
+    if (tile->chosen)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, tile->edge);
+    }
+    if (tile->focus)
+    {
+        ImGui::SetKeyboardFocusHere();
+    }
+    bool chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
+    if (tile->chosen)
+    {
+        ImGui::PopStyleVar();
+    }
+    if (tile->face != 0)
+    {
+        ImGui::PopStyleColor();
+    }
+    ImGui::PopID();
+    return chosen;
+}
+
 bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note)
 {
     ImGui::PushID(static_cast<int>(index));
@@ -402,6 +430,10 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
     {
         flags |= ImGuiWindowFlags_NoResize;
     }
+    if (!window->scrolls)
+    {
+        flags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    }
     if (window->centered)
     {
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
@@ -431,6 +463,10 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
         {
             *closed = true;
         }
+        if (window->focus_on_open && ImGui::IsWindowAppearing())
+        {
+            ImGui::SetWindowFocus();
+        }
     }
     if (g_window_depth < WINDOW_DEPTH_MAX)
     {
@@ -448,6 +484,16 @@ void retro_ui_window_end()
         retro_ui_end_window();
     }
     ImGui::End();
+}
+
+bool retro_ui_window_appearing()
+{
+    return ImGui::IsWindowAppearing();
+}
+
+bool retro_ui_window_focused()
+{
+    return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 }
 
 void retro_ui_bring_window_to_front()
@@ -628,6 +674,11 @@ void retro_ui_pop_id()
 float retro_ui_width_left()
 {
     return ImGui::GetContentRegionAvail().x;
+}
+
+float retro_ui_height_left()
+{
+    return ImGui::GetContentRegionAvail().y;
 }
 
 float retro_ui_line_height()
