@@ -392,6 +392,11 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
                                 ImVec2(0.5f, 0.5f));
         flags |= ImGuiWindowFlags_NoMove;
     }
+    else if (window->centered_on_open)
+    {
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
+                                ImVec2(0.5f, 0.5f));
+    }
     else
     {
         ImGui::SetNextWindowPos(ImVec2(window->x, window->y), ImGuiCond_FirstUseEver);
@@ -432,6 +437,64 @@ void retro_ui_window_end()
 void retro_ui_bring_window_to_front()
 {
     ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+}
+
+void retro_ui_window_chrome(float* width, float* height)
+{
+    const ImGuiStyle& style = ImGui::GetStyle();
+    *width = style.WindowPadding.x * 2.0f;
+    *height = style.WindowPadding.y * 2.0f + ImGui::GetFrameHeight();   // the title bar: a frame's height
+}
+
+bool retro_ui_section_header(const char* id, const char* label, bool open_at_first)
+{
+    char imgui_label[300] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", label, id);
+    return retro_ui_collapsing_header(imgui_label, open_at_first ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+}
+
+// retro_ui_end_scroll_area needs to know whether its begin showed the contents.
+constexpr int32_t SCROLL_AREA_DEPTH_MAX = 8;
+static bool g_scroll_area_visible[SCROLL_AREA_DEPTH_MAX] = {};
+static int32_t g_scroll_area_depth = 0;
+
+bool retro_ui_begin_scroll_area(const char* id, float width, float height)
+{
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    bool visible = ImGui::BeginChild(id, ImVec2(width, height));
+    if (visible)
+    {
+        // A child has its own draw list: the pixel font needs nearest sampling here too.
+        ImGui::GetWindowDrawList()->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
+    }
+    if (g_scroll_area_depth < SCROLL_AREA_DEPTH_MAX)
+    {
+        g_scroll_area_visible[g_scroll_area_depth] = visible;
+    }
+    g_scroll_area_depth++;
+    return visible;
+}
+
+void retro_ui_end_scroll_area()
+{
+    g_scroll_area_depth--;
+    if (g_scroll_area_depth >= 0 && g_scroll_area_depth < SCROLL_AREA_DEPTH_MAX &&
+        g_scroll_area_visible[g_scroll_area_depth])
+    {
+        ImGui::GetWindowDrawList()->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+}
+
+void retro_ui_begin_group()
+{
+    ImGui::BeginGroup();
+}
+
+void retro_ui_end_group()
+{
+    ImGui::EndGroup();
 }
 
 void retro_ui_text(const char* text)
@@ -542,6 +605,21 @@ float retro_ui_line_height()
     return ImGui::GetFrameHeight();
 }
 
+float retro_ui_line_step()
+{
+    return ImGui::GetFrameHeightWithSpacing();
+}
+
+float retro_ui_text_line_step()
+{
+    return ImGui::GetTextLineHeightWithSpacing();
+}
+
+float retro_ui_item_spacing()
+{
+    return spacing();
+}
+
 float retro_ui_button_width(const char* label)
 {
     return button_width(label);
@@ -573,6 +651,24 @@ void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t 
     float top = g_canvas_y + y;
     ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(left, top), ImVec2(left + width, top + height),
                                               retro_ui_color_imgui(argb));
+}
+
+void retro_ui_canvas_outline(float x, float y, float width, float height, uint32_t argb, float thickness)
+{
+    float left = g_canvas_x + x;
+    float top = g_canvas_y + y;
+    ImGui::GetWindowDrawList()->AddRect(ImVec2(left, top), ImVec2(left + width, top + height),
+                                        retro_ui_color_imgui(argb), 0.0f, 0, thickness);
+}
+
+void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
+                           uint32_t argb)
+{
+    float left = g_canvas_x + x;
+    float top = g_canvas_y + y;
+    ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(texture), ImVec2(left, top),
+                                         ImVec2(left + width, top + height), ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max),
+                                         retro_ui_color_imgui(argb));
 }
 
 // ---------------------------------------------------------------------------

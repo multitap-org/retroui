@@ -121,7 +121,8 @@ struct RetroUiWindow
     float       width     = 0.0f;      // 0: as wide as its contents
     float       height    = 0.0f;      // 0: as tall as its contents
     bool        centered  = false;     // kept in the middle of the screen (not movable)
-    float       x         = 0.0f;      // not centered: where it first opens
+    bool        centered_on_open = false;   // in the middle when it opens, movable afterwards
+    float       x         = 0.0f;      // neither centered: where it first opens
     float       y         = 0.0f;
     bool        closable  = true;      // the X in the title bar
     bool        resizable = false;
@@ -138,6 +139,28 @@ void retro_ui_window_end();
 // must not hide under the menus). Any window: retroui's or an overlay
 // (touch_ui_begin_overlay).
 void retro_ui_bring_window_to_front();
+
+// What a window adds around its contents: the padding on both sides
+// (`width`), and the padding and the title bar (`height`). A window sized to
+// fit something adds these.
+void retro_ui_window_chrome(float* width, float* height);
+
+// A section of a window that can be folded away: its header, a bar with an
+// arrow and `label`. True while it's open (draw its contents then).
+// `open_at_first`: open the first time it's drawn.
+bool retro_ui_section_header(const char* id, const char* label, bool open_at_first);
+
+// A part of the window, `width` x `height` (0: what's left), that scrolls on
+// its own when its contents are taller; no background or edge of its own (the
+// window's shows through). True while its contents show; call
+// retro_ui_end_scroll_area() either way.
+bool retro_ui_begin_scroll_area(const char* id, float width, float height);
+void retro_ui_end_scroll_area();
+
+// What's drawn between these is one block: retro_ui_same_line() after it puts
+// the next item right of all of it, at its top (a column beside another).
+void retro_ui_begin_group();
+void retro_ui_end_group();
 
 void retro_ui_text(const char* text);
 void retro_ui_text_format(const char* format, ...) RETRO_UI_PRINTF(1, 2);   // printf-style
@@ -163,6 +186,9 @@ void retro_ui_pop_id();
 
 float retro_ui_width_left();                 // the width left on this line
 float retro_ui_line_height();                // a control's height
+float retro_ui_line_step();                  // ...and the spacing below it: rows of controls are this far apart
+float retro_ui_text_line_step();             // a line of text and the spacing below it
+float retro_ui_item_spacing();               // between two items on a line
 float retro_ui_button_width(const char* label);
 float retro_ui_font_size();                  // the current font's height (its glyphs are drawn this tall)
 
@@ -174,6 +200,13 @@ float retro_ui_font_size();                  // the current font's height (its g
 // are ARGB (alpha used).
 void retro_ui_canvas(float width, float height);
 void retro_ui_canvas_rect(float x, float y, float width, float height, uint32_t argb);
+// A rectangle's outline, `thickness` pixels wide.
+void retro_ui_canvas_outline(float x, float y, float width, float height, uint32_t argb, float thickness);
+// A texture (as retro_ui_layer_image: the toolkit's texture id, e.g.
+// VideoTexture::imgui_id) stretched over the rectangle; [0, u_max] x
+// [0, v_max] of it is drawn, tinted by `argb` (0xFFFFFFFF: as it is).
+void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, float height, float u_max, float v_max,
+                           uint32_t argb);
 
 // ---------------------------------------------------------------------------
 // Keys a window reacts to on its own (Escape closes it, a number key picks a
