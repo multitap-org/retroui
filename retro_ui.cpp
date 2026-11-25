@@ -313,6 +313,18 @@ static bool menu_item(const char* label)
     return clicked;
 }
 
+// An item that can't be picked: greyed out, never lit. Its label is ours
+// (draw_label's colors), so ImGui's disabled alpha alone wouldn't grey it.
+static void menu_item_disabled(const char* label)
+{
+    ImVec2 item_position = next_text_position(0.0f);
+    push_invisible_text();
+    ImGui::MenuItem(label, nullptr, false, false);
+    ImGui::PopStyleColor();
+    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), item_position,
+                                        retro_ui_color_imgui(g_palette.text_disabled), label);
+}
+
 // One menu on the bar: its title (a box behind it with menu_boxes) and, when
 // open, its dropdown. `open_now`: open it this frame with the keyboard /
 // gamepad focus on its first item. Returns the picked item's id or
@@ -368,7 +380,11 @@ static int32_t bar_menu(const RetroUiMenu* menu, float block, bool open_now)
             continue;
         }
         ImGui::PushID(i);
-        if (menu_item(item->label))
+        if (!item->enabled)
+        {
+            menu_item_disabled(item->label);
+        }
+        else if (menu_item(item->label))
         {
             picked = item->id;
         }

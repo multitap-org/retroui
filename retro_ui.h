@@ -86,8 +86,10 @@ void retro_ui_center_windows(void);
 
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item
-// whose id is RETRO_UI_MENU_SEPARATOR is a line between items. A menu with
-// no items shows `empty_label` (disabled) instead, if it has one.
+// whose id is RETRO_UI_MENU_SEPARATOR is a line between items; one not
+// `enabled` is greyed out and can't be picked (it shows where it is: CLOSE
+// GAME while no game runs). A menu with no items shows `empty_label`
+// (disabled) instead, if it has one.
 constexpr int32_t RETRO_UI_MENU_NONE = -1;        // nothing picked
 constexpr int32_t RETRO_UI_MENU_SEPARATOR = -2;
 
@@ -95,6 +97,7 @@ struct RetroUiMenuItem
 {
     const char* label;
     int32_t     id;
+    bool        enabled = true;
 };
 
 struct RetroUiMenu
