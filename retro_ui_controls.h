@@ -134,8 +134,9 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
 //   [  482  ]  [  193  ]  [  _ _ _  ]
 //
 // `editable`: typed into (digits only, `groups` x `group_digits` at most;
-// the box the next digit goes in is edged while it has the keyboard), and
-// true when Enter was pressed in it. Shown only: never true.
+// the box the next digit goes in is edged while it has the keyboard; typing
+// always goes at the end, the caret can't be moved), and true when Enter was
+// pressed in it. Shown only: never true.
 struct RetroUiCodeBoxes
 {
     uint32_t groups       = 3;
@@ -242,7 +243,7 @@ struct RetroUiTile
     float    width  = 0.0f;
     float    height = 0.0f;
     uint32_t face   = 0;       // 0xAARRGGBB; 0: the theme's (another color sets it apart, e.g. a slot in use)
-    bool     chosen = false;   // edged, `edge` pixels wide
+    bool     chosen = false;   // edged, `edge` pixels wide, in the theme's light color (over the picture)
     float    edge   = 0.0f;
     bool     focus  = false;   // the keyboard focus goes to it now (one chosen otherwise: 1-9, opening)
 
@@ -448,6 +449,9 @@ void retro_ui_disabled_item_tooltip(const char* text);
 // a gamepad or keys (a click focuses too, but that focus doesn't count once
 // the mouse has left it): what a picture beside a list follows.
 bool retro_ui_item_pointed();
+// The last item was clicked, or activated from the keys or a gamepad (a
+// read-only field copies what it shows then).
+bool retro_ui_item_clicked();
 
 // Ids for repeated controls (one per item of a list).
 void retro_ui_push_id(const char* id);

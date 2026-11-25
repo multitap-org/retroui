@@ -345,6 +345,21 @@ static int edit_field_callback(ImGuiInputTextCallbackData* data)
     return 0;
 }
 
+// The code boxes' field: an edit field's filtering, and its caret kept at
+// the end, so a click or an arrow key can't send the next digit into the
+// middle while the boxes edge the last one (they show no caret of their own).
+static int code_boxes_callback(ImGuiInputTextCallbackData* data)
+{
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackAlways)
+    {
+        data->CursorPos = data->BufTextLen;
+        data->SelectionStart = data->BufTextLen;
+        data->SelectionEnd = data->BufTextLen;
+        return 0;
+    }
+    return edit_field_callback(data);
+}
+
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field)
 {
     ImGui::PushID(id);
@@ -440,8 +455,8 @@ bool retro_ui_code_boxes(const char* id, char* digits, size_t digits_size, const
         void* user_data = &field;
         entered = ImGui::InputText("##code", digits, digits_size,
                                    ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackEdit |
-                                       ImGuiInputTextFlags_CallbackCharFilter,
-                                   edit_field_callback, user_data);
+                                       ImGuiInputTextFlags_CallbackCharFilter | ImGuiInputTextFlags_CallbackAlways,
+                                   code_boxes_callback, user_data);
         typing = ImGui::IsItemActive();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(6);
@@ -582,7 +597,15 @@ int32_t retro_ui_equal_buttons(const RetroUiRowButton* buttons, uint32_t count, 
         float this_width = i + 1 < count ? column : row - gaps - column * static_cast<float>(count - 1);
         retro_ui_begin_disabled(!buttons[i].enabled);
         char imgui_label[300] = {};
-        std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", buttons[i].label, buttons[i].id);
+        if (buttons[i].id != nullptr)
+        {
+            std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", buttons[i].label, buttons[i].id);
+        }
+        else
+        {
+            // No id: the column number keeps it apart from its neighbours.
+            std::snprintf(imgui_label, sizeof(imgui_label), "%s###equal_%u", buttons[i].label, i);
+        }
         if (retro_ui_button_sized(imgui_label, this_width, 0.0f))
         {
             pressed = static_cast<int32_t>(i);
@@ -659,10 +682,6 @@ bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, retro_ui_color_vec4(tile->face));
     }
-    if (tile->chosen)
-    {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, tile->edge);
-    }
     if (tile->focus)
     {
         ImGui::SetKeyboardFocusHere();
@@ -678,9 +697,19 @@ bool retro_ui_tile(const char* id, const char* label, const RetroUiTile* tile)
     {
         chosen = retro_ui_button_sized(label, tile->width, tile->height) || ImGui::IsItemFocused();
     }
-    if (tile->chosen)
+    if (tile->chosen && tile->edge > 0.0f)
     {
-        ImGui::PopStyleVar();
+        // The edge last, over the face and the picture (a frame border
+        // would be painted over by them), in the theme's light color.
+        ImVec2 min = ImGui::GetItemRectMin();
+        ImVec2 max = ImGui::GetItemRectMax();
+        float edge = std::floor(tile->edge) > 1.0f ? std::floor(tile->edge) : 1.0f;
+        ImU32 color = ImGui::GetColorU32(retro_ui_color_vec4(retro_ui_palette()->button_light));
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRectFilled(min, ImVec2(max.x, min.y + edge), color);
+        draw_list->AddRectFilled(ImVec2(min.x, max.y - edge), max, color);
+        draw_list->AddRectFilled(min, ImVec2(min.x + edge, max.y), color);
+        draw_list->AddRectFilled(ImVec2(max.x - edge, min.y), max, color);
     }
     if (tile->face != 0)
     {
@@ -1367,6 +1396,11 @@ void retro_ui_disabled_item_tooltip(const char* text)
 bool retro_ui_item_pointed()
 {
     return ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
+}
+
+bool retro_ui_item_clicked()
+{
+    return ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemActivated();
 }
 
 void retro_ui_push_id(const char* id)
