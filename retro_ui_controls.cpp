@@ -9,6 +9,10 @@
 
 #include "retro_ui.h"
 
+// File state, as ImGui's own (an immediate-mode GUI keeps one current
+// window, line and ID stack): it is only touched between a begin and its end
+// in one frame, on the UI thread.
+//
 // Room kept on the right of the controls: the row's end button (for every
 // control in the row) and a reserved button (for the next control only).
 static float g_row_reserved = 0.0f;
