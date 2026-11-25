@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <string>
 
 #include "imgui.h"
 #include "imgui_internal.h"   // BringWindowToDisplayFront
@@ -161,6 +162,11 @@ bool retro_ui_id_button(const char* id, const char* label)
     return retro_ui_button(imgui_label);
 }
 
+bool retro_ui_move_button(const char* id, bool up)
+{
+    return ImGui::ArrowButton(id, up ? ImGuiDir_Up : ImGuiDir_Down);
+}
+
 float retro_ui_text_width(const char* text)
 {
     return ImGui::CalcTextSize(text).x;
@@ -196,17 +202,34 @@ bool retro_ui_check(const char* id, const char* label, bool* value)
     return changed;
 }
 
+float retro_ui_check_width(const char* label)
+{
+    return ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(label).x;
+}
+
 bool retro_ui_number_field(const char* id, int32_t* value, int32_t step)
+{
+    return retro_ui_number_field_steps(id, value, step, 8);
+}
+
+bool retro_ui_number_field_steps(const char* id, int32_t* value, int32_t step, int32_t fast_step)
 {
     ImGui::PushID(id);
     int number = static_cast<int>(*value);
     ImGui::SetNextItemWidth(take_control_width());
     retro_ui_push_field_text();
-    bool changed = ImGui::InputInt("##number", &number, step > 0 ? step : 1, 8);
+    bool changed = ImGui::InputInt("##number", &number, step > 0 ? step : 1, static_cast<int>(fast_step));
     retro_ui_pop_field_text();
     ImGui::PopID();
     *value = static_cast<int32_t>(number);
     return changed;
+}
+
+float retro_ui_number_field_width(const char* widest)
+{
+    // The text with its padding, and the - and + buttons (a control's height
+    // square each) with theirs.
+    return ImGui::CalcTextSize(widest).x + ImGui::GetFrameHeight() * 2.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
 }
 
 bool retro_ui_slider(const char* id, float* value, float min, float max, const char* format)
@@ -214,6 +237,17 @@ bool retro_ui_slider(const char* id, float* value, float min, float max, const c
     ImGui::PushID(id);
     ImGui::SetNextItemWidth(take_control_width());
     bool changed = ImGui::SliderFloat("##slider", value, min, max, format);
+    ImGui::PopID();
+    return changed;
+}
+
+bool retro_ui_slider_int(const char* id, int32_t* value, int32_t min, int32_t max, const char* format)
+{
+    ImGui::PushID(id);
+    ImGui::SetNextItemWidth(take_control_width());
+    int number = static_cast<int>(*value);
+    bool changed = ImGui::SliderInt("##slider", &number, static_cast<int>(min), static_cast<int>(max), format);
+    *value = static_cast<int32_t>(number);
     ImGui::PopID();
     return changed;
 }
@@ -331,7 +365,15 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
     // The options aren't changed through UserData; Dear ImGui only takes a void*.
     void* user_data = const_cast<RetroUiEditField*>(field);
     retro_ui_push_field_text();
-    bool entered = ImGui::InputText("##edit", buffer, buffer_size, flags, edit_field_callback, user_data);
+    bool entered = false;
+    if (field->hint != nullptr)
+    {
+        entered = ImGui::InputTextWithHint("##edit", field->hint, buffer, buffer_size, flags, edit_field_callback, user_data);
+    }
+    else
+    {
+        entered = ImGui::InputText("##edit", buffer, buffer_size, flags, edit_field_callback, user_data);
+    }
     retro_ui_pop_field_text();
     ImGui::PopID();
     return entered;
@@ -918,6 +960,39 @@ void retro_ui_label(const char* text)
     ImGui::TextUnformatted(text);
 }
 
+void retro_ui_label_colored(uint32_t argb, const char* text)
+{
+    ImGui::AlignTextToFramePadding();
+    retro_ui_text_colored(argb, text);
+}
+
+void retro_ui_text_fit(const char* text, float width)
+{
+    if (ImGui::CalcTextSize(text).x <= width)
+    {
+        ImGui::TextUnformatted(text);
+        return;
+    }
+    const char* ellipsis = "\xE2\x80\xA6";
+    std::string cut = text;
+    while (!cut.empty() && ImGui::CalcTextSize((cut + ellipsis).c_str()).x > width)
+    {
+        cut.pop_back();
+        while (!cut.empty() && (static_cast<unsigned char>(cut.back()) & 0xC0u) == 0x80u)
+        {
+            cut.pop_back();   // the rest of a UTF-8 character
+        }
+    }
+    ImGui::TextUnformatted((cut + ellipsis).c_str());
+    retro_ui_item_tooltip(text);
+}
+
+void retro_ui_label_fit(const char* text, float width)
+{
+    ImGui::AlignTextToFramePadding();
+    retro_ui_text_fit(text, width);
+}
+
 void retro_ui_same_line()
 {
     ImGui::SameLine();
@@ -971,6 +1046,21 @@ void retro_ui_unindent()
     ImGui::Unindent();
 }
 
+void retro_ui_indent_by(float width)
+{
+    ImGui::Indent(width);
+}
+
+void retro_ui_unindent_by(float width)
+{
+    ImGui::Unindent(width);
+}
+
+void retro_ui_scroll_here()
+{
+    ImGui::SetScrollHereY(0.5f);
+}
+
 void retro_ui_begin_disabled(bool disabled)
 {
     if (g_disabled_depth < DISABLED_DEPTH_MAX)
@@ -1000,6 +1090,11 @@ void retro_ui_disabled_item_tooltip(const char* text)
     {
         retro_ui_tooltip(text);
     }
+}
+
+bool retro_ui_item_pointed()
+{
+    return ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
 }
 
 void retro_ui_push_id(const char* id)

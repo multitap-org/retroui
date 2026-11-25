@@ -67,6 +67,10 @@ bool retro_ui_row_button(const char* id, const char* label);
 // language): focus and keyboard navigation stay on it.
 bool retro_ui_id_button(const char* id, const char* label);
 
+// A square button as tall as a control with a triangle pointing up (or
+// down): moves an item along a list.
+bool retro_ui_move_button(const char* id, bool up);
+
 // The width of `text` in the current font.
 float retro_ui_text_width(const char* text);
 
@@ -85,8 +89,18 @@ void retro_ui_dim_label(const char* text, const char* help);
 void retro_ui_next_width(float width);
 
 bool retro_ui_check(const char* id, const char* label, bool* value);
+// The width of a check box with `label` (its box and the label).
+float retro_ui_check_width(const char* label);
 bool retro_ui_number_field(const char* id, int32_t* value, int32_t step);
+// The same, `fast_step` at a time while Ctrl is held on its - / + buttons
+// (retro_ui_number_field's is 8).
+bool retro_ui_number_field_steps(const char* id, int32_t* value, int32_t step, int32_t fast_step);
+// The width of a number field that shows up to `widest` (e.g. "9999"), its
+// - and + buttons included: a field sized for what it holds (retro_ui_next_width).
+float retro_ui_number_field_width(const char* widest);
 bool retro_ui_slider(const char* id, float* value, float min, float max, const char* format);
+// The same for whole numbers (`format` e.g. "%d%%").
+bool retro_ui_slider_int(const char* id, int32_t* value, int32_t min, int32_t max, const char* format);
 
 // A swatch (a click opens a color picker) and the value as #RRGGBB.
 bool retro_ui_color_field(const char* id, uint32_t* argb);
@@ -106,6 +120,7 @@ struct RetroUiEditField
     bool     focus          = false;   // the keyboard focus goes to it now (typing starts at once)
     bool     read_only      = false;   // shown (selected, scrolled) but not edited: a link to copy
     bool     uppercase      = false;   // letters typed come out in capitals (a name the pixel font shows so)
+    const char* hint        = nullptr; // shown dimmed while it's empty; nullptr: none
 };
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
 
@@ -342,6 +357,11 @@ void retro_ui_text_wrapped_at(const char* text, float wrap_x);
 void retro_ui_dim_text_wrapped_at(const char* text, float wrap_x);
 void retro_ui_text_colored(uint32_t argb, const char* text);
 void retro_ui_label(const char* text);                     // lined up with the controls beside it
+void retro_ui_label_colored(uint32_t argb, const char* text);   // the same in a color of its own
+// Text cut short with "…" (whole characters) when it's wider than `width`,
+// all of it in the tooltip then. _label: lined up with the controls beside it.
+void retro_ui_text_fit(const char* text, float width);
+void retro_ui_label_fit(const char* text, float width);
 
 void retro_ui_same_line();              // the next item goes on this line
 void retro_ui_same_line_at(float x);    // ...starting `x` from the window's left edge (a column)
@@ -357,12 +377,22 @@ void retro_ui_spacing();
 void retro_ui_separator();
 void retro_ui_indent();
 void retro_ui_unindent();
+void retro_ui_indent_by(float width);     // ...`width` instead of the theme's step (pair with the same width)
+void retro_ui_unindent_by(float width);
+
+// The scroll area (or window) scrolls so the last line is in its middle: a
+// row waiting for a key stays in view while BIND ALL goes down the list.
+void retro_ui_scroll_here();
 
 // Greys out (and disables) what comes until the matching end, when `disabled`.
 void retro_ui_begin_disabled(bool disabled);
 void retro_ui_end_disabled();
 // The last item's tooltip, shown also while it's greyed out (it says why).
 void retro_ui_disabled_item_tooltip(const char* text);
+// The last item is under the mouse, or has the focus while navigating with
+// a gamepad or keys (a click focuses too, but that focus doesn't count once
+// the mouse has left it): what a picture beside a list follows.
+bool retro_ui_item_pointed();
 
 // Ids for repeated controls (one per item of a list).
 void retro_ui_push_id(const char* id);
