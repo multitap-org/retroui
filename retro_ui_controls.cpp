@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"   // BringWindowToDisplayFront
 
+#include "pixel_font_imgui.h"
 #include "port_indicators.h"
 #include "retro_ui.h"
 
@@ -316,6 +317,10 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
     {
         flags |= ImGuiInputTextFlags_ReadOnly;
     }
+    if (field->uppercase)
+    {
+        flags |= ImGuiInputTextFlags_CharsUppercase;
+    }
     // The options aren't changed through UserData; Dear ImGui only takes a void*.
     void* user_data = const_cast<RetroUiEditField*>(field);
     retro_ui_push_field_text();
@@ -478,7 +483,7 @@ bool retro_ui_begin_modal(const RetroUiModal* modal, bool open)
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(modal->width, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(modal->width, modal->height), ImGuiCond_Appearing);
     return ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove);
 }
 
@@ -778,6 +783,34 @@ bool retro_ui_section_header(const char* id, const char* label, bool open_at_fir
     return retro_ui_collapsing_header(imgui_label, open_at_first ? ImGuiTreeNodeFlags_DefaultOpen : 0);
 }
 
+bool retro_ui_section_header_open(const char* id, const char* label, bool open)
+{
+    ImGui::SetNextItemOpen(open, ImGuiCond_Always);
+    return retro_ui_section_header(id, label, false);
+}
+
+bool retro_ui_begin_tabs(const char* id)
+{
+    return ImGui::BeginTabBar(id);
+}
+
+void retro_ui_end_tabs()
+{
+    ImGui::EndTabBar();
+}
+
+bool retro_ui_begin_tab(const char* id, const char* label, bool select)
+{
+    char imgui_label[300] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", label, id);
+    return ImGui::BeginTabItem(imgui_label, nullptr, select ? ImGuiTabItemFlags_SetSelected : 0);
+}
+
+void retro_ui_end_tab()
+{
+    ImGui::EndTabItem();
+}
+
 // retro_ui_end_scroll_area needs to know whether its begin showed the contents.
 constexpr int32_t SCROLL_AREA_DEPTH_MAX = 8;
 static bool g_scroll_area_visible[SCROLL_AREA_DEPTH_MAX] = {};
@@ -898,6 +931,14 @@ void retro_ui_set_cursor_x(float x)
     ImGui::SetCursorPosX(x);
 }
 
+void retro_ui_down_to(float y)
+{
+    if (ImGui::GetCursorPosY() < y)
+    {
+        ImGui::SetCursorPosY(y);
+    }
+}
+
 void retro_ui_space(float width, float height)
 {
     ImGui::Dummy(ImVec2(width, height));
@@ -942,6 +983,15 @@ void retro_ui_end_disabled()
     if (g_disabled_depth >= 0 && g_disabled_depth < DISABLED_DEPTH_MAX && g_disabled[g_disabled_depth])
     {
         ImGui::EndDisabled();
+    }
+}
+
+void retro_ui_disabled_item_tooltip(const char* text)
+{
+    // A disabled item needs AllowWhenDisabled for its tooltip.
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    {
+        retro_ui_tooltip(text);
     }
 }
 
@@ -1015,6 +1065,18 @@ float retro_ui_font_size()
     return ImGui::GetFontSize();
 }
 
+float retro_ui_bottom_line_y()
+{
+    return ImGui::GetWindowHeight() - ImGui::GetStyle().WindowPadding.y - ImGui::GetFrameHeight();
+}
+
+void retro_ui_window_size(float* width, float* height)
+{
+    ImVec2 size = ImGui::GetWindowSize();
+    *width = size.x;
+    *height = size.y;
+}
+
 double retro_ui_seconds()
 {
     return ImGui::GetTime();
@@ -1066,6 +1128,14 @@ void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb)
     ImGui::GetWindowDrawList()->AddText(ImVec2(g_canvas_x + x, g_canvas_y + y), retro_ui_color_imgui(argb), text);
 }
 
+void retro_ui_window_rect(float x, float y, float width, float height, uint32_t argb)
+{
+    ImVec2 window = ImGui::GetWindowPos();
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(window.x + x, window.y + y),
+                                              ImVec2(window.x + x + width, window.y + y + height),
+                                              retro_ui_color_imgui(argb));
+}
+
 void retro_ui_port_leds(uint32_t count, int32_t lit, float block)
 {
     ImVec2 at = ImGui::GetCursorScreenPos();
@@ -1081,6 +1151,17 @@ void retro_ui_ping_bars(bool known, uint32_t ping_ms, float block)
     port_indicators_draw_ping(at.x, at.y + ImGui::GetFrameHeight() - block * 2.0f, block, known, ping_ms,
                               retro_ui_palette()->panel_dark);
     ImGui::Dummy(ImVec2(port_indicators_ping_width(block), ImGui::GetFrameHeight()));
+}
+
+void retro_ui_hold_ring(float progress, uint32_t argb)
+{
+    char ring[4] = {};
+    pixel_font_imgui_spinner(progress, ring);   // a glyph of the pixel font
+    if (ring[0] != '\0')
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(retro_ui_color_vec4(argb), "%s", ring);
+    }
 }
 
 // ---------------------------------------------------------------------------

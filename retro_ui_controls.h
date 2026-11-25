@@ -101,6 +101,7 @@ struct RetroUiEditField
     uint32_t max_characters = 0;       // 0: as many as `buffer` holds
     bool     focus          = false;   // the keyboard focus goes to it now (typing starts at once)
     bool     read_only      = false;   // shown (selected, scrolled) but not edited: a link to copy
+    bool     uppercase      = false;   // letters typed come out in capitals (a name the pixel font shows so)
 };
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
 
@@ -237,6 +238,8 @@ struct RetroUiModal
     const char* id    = nullptr;   // stable while the title changes
     const char* title = nullptr;
     float       width = 0.0f;      // set when it opens; 0: as wide as its contents
+    float       height = 0.0f;     // set when it opens; 0: as tall as its contents (one size for
+                                   // contents that come and go keeps it from jumping)
 };
 bool retro_ui_begin_modal(const RetroUiModal* modal, bool open);
 void retro_ui_close_modal();   // inside it: it closes (gone next frame)
@@ -291,6 +294,24 @@ void retro_ui_window_chrome(float* width, float* height);
 // arrow and `label`. True while it's open (draw its contents then).
 // `open_at_first`: open the first time it's drawn.
 bool retro_ui_section_header(const char* id, const char* label, bool open_at_first);
+// The same, open or closed as `open` says every frame (the caller decides:
+// one section of several open at a time). True while it's open: false once
+// its header was clicked to close it.
+bool retro_ui_section_header_open(const char* id, const char* label, bool open);
+
+// Tabs: a bar of tabs, one shown at a time, its contents below:
+//   if (retro_ui_begin_tabs("id")) {
+//       if (retro_ui_begin_tab("a", label, select_a)) { ...; retro_ui_end_tab(); }
+//       ...
+//       retro_ui_end_tabs();
+//   }
+// `select`: the tab is chosen now (PAGE LEFT / RIGHT, retro_ui_tab_switch, or
+// a window opened on it); otherwise the user's click chooses. Bars can nest
+// (a tab with tabs of its own). Ids stay while the labels change (the language).
+bool retro_ui_begin_tabs(const char* id);
+void retro_ui_end_tabs();        // only when retro_ui_begin_tabs was true
+bool retro_ui_begin_tab(const char* id, const char* label, bool select);   // true while it's the one shown
+void retro_ui_end_tab();         // only when retro_ui_begin_tab was true
 
 // A part of the window, `width` x `height` (0: what's left), that scrolls on
 // its own when its contents are taller; no background or edge of its own (the
@@ -323,6 +344,8 @@ void retro_ui_same_line_at(float x);    // ...starting `x` from the window's lef
 void retro_ui_same_line_gap(float gap); // ...`gap` after the last item (set apart from it)
 void retro_ui_set_cursor_x(float x);    // the next item starts `x` from the window's left edge
                                         // (on the line it's on: centered in a column, say)
+void retro_ui_down_to(float y);         // the next item starts at least `y` down from the window's top
+                                        // (no higher: something kept in one place, whatever is above it)
 // Empty room `width` x `height` at the cursor, as an item that draws nothing
 // (a line kept as tall as a control, a column kept as wide as its arrows).
 void retro_ui_space(float width, float height);
@@ -334,6 +357,8 @@ void retro_ui_unindent();
 // Greys out (and disables) what comes until the matching end, when `disabled`.
 void retro_ui_begin_disabled(bool disabled);
 void retro_ui_end_disabled();
+// The last item's tooltip, shown also while it's greyed out (it says why).
+void retro_ui_disabled_item_tooltip(const char* text);
 
 // Ids for repeated controls (one per item of a list).
 void retro_ui_push_id(const char* id);
@@ -354,6 +379,9 @@ float retro_ui_text_line_step();             // a line of text and the spacing b
 float retro_ui_item_spacing();               // between two items on a line
 float retro_ui_button_width(const char* label);
 float retro_ui_font_size();                  // the current font's height (its glyphs are drawn this tall)
+float retro_ui_bottom_line_y();              // where a control on the window's last line goes, down from
+                                             // its top (buttons kept at the bottom: retro_ui_down_to it)
+void  retro_ui_window_size(float* width, float* height);   // the window being drawn, its frame included
 
 // The toolkit's clock: seconds since it started (an animation, a COPIED shown
 // for two seconds).
@@ -376,6 +404,10 @@ void retro_ui_canvas_image(uint64_t texture, float x, float y, float width, floa
                            uint32_t argb);
 // Text in the current font, its top left corner at (x, y).
 void retro_ui_canvas_text(float x, float y, const char* text, uint32_t argb);
+// A rectangle anywhere on the window being drawn, in pixels from the window's
+// top left corner (its frame's), taking no room: a mark kept in one place
+// whatever the contents (a page indicator above the buttons).
+void retro_ui_window_rect(float x, float y, float width, float height, uint32_t argb);
 
 // Port LEDs and ping bars (port_indicators.h) as items on the line; `block`:
 // window pixels per retro pixel. Off LEDs and unlit bars are the palette's
@@ -386,6 +418,10 @@ void retro_ui_port_leds(uint32_t count, int32_t lit, float block);
 // The ping bars, on an item as tall as a control, their bottoms two retro
 // pixels above its bottom; all off while not `known`.
 void retro_ui_ping_bars(bool known, uint32_t ping_ms, float block);
+
+// The ring that closes while a button is held to bind it (`progress` 0 .. 1),
+// as text in `argb` after the last item on its line; nothing at 0.
+void retro_ui_hold_ring(float progress, uint32_t argb);
 
 // ---------------------------------------------------------------------------
 // Keys a window reacts to on its own (Escape closes it, a number key picks a
