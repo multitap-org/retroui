@@ -126,6 +126,27 @@ struct RetroUiEditField
 };
 bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const RetroUiEditField* field);
 
+// A code of digits (a pairing code) in boxes that split the line's width
+// equally, one group of digits each, in a font one size bigger than the
+// window's: the same look whether it's shown or typed. Digits still missing
+// show as "_".
+//
+//   [  482  ]  [  193  ]  [  _ _ _  ]
+//
+// `editable`: typed into (digits only, `groups` x `group_digits` at most;
+// the box the next digit goes in is edged while it has the keyboard), and
+// true when Enter was pressed in it. Shown only: never true.
+struct RetroUiCodeBoxes
+{
+    uint32_t groups       = 3;
+    uint32_t group_digits = 3;
+    bool     editable     = false;
+    bool     focus        = false;   // editable: the keyboard focus goes to it now
+};
+bool retro_ui_code_boxes(const char* id, char* digits, size_t digits_size, const RetroUiCodeBoxes* boxes);
+// The boxes' height (a panel of fixed height leaves room for them).
+float retro_ui_code_boxes_height();
+
 // A read-only field showing `value` (or `hint` while empty) and "..." after
 // it. True when either was clicked (the caller opens a picker).
 bool retro_ui_picker_field(const char* id, const char* hint, const char* value, const char* help);

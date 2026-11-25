@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include "imgui.h"
@@ -379,6 +380,117 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
         entered = ImGui::InputText("##edit", buffer, buffer_size, flags, edit_field_callback, user_data);
     }
     retro_ui_pop_field_text();
+    ImGui::PopID();
+    return entered;
+}
+
+// The code boxes' metrics: window pixels per retro pixel, and the bigger
+// font's size (one whole step up: the pixel font stays sharp).
+static float code_block()
+{
+    float block = std::floor(ImGui::GetFontSize() / PIXEL_FONT_IMGUI_UNIT);
+    return block < 1.0f ? 1.0f : block;
+}
+
+static float code_font_size()
+{
+    return PIXEL_FONT_IMGUI_UNIT * (code_block() + 1.0f);
+}
+
+float retro_ui_code_boxes_height()
+{
+    return code_font_size() + code_block() * 6.0f;
+}
+
+bool retro_ui_code_boxes(const char* id, char* digits, size_t digits_size, const RetroUiCodeBoxes* boxes)
+{
+    uint32_t groups = boxes->groups > 0 ? boxes->groups : 1;
+    uint32_t group_digits = boxes->group_digits > 0 ? boxes->group_digits : 1;
+    uint32_t total = groups * group_digits;
+    float block = code_block();
+    float big = code_font_size();
+    float width = take_control_width();
+    float height = retro_ui_code_boxes_height();
+    ImGui::PushID(id);
+    ImVec2 origin = ImGui::GetCursorScreenPos();
+    bool entered = false;
+    bool typing = false;
+    if (boxes->editable)
+    {
+        // One field over all the boxes, invisible (its frame, text and caret):
+        // it takes the keys, the clicks and the gamepad's focus (and the
+        // touch keyboard), and the boxes drawn over it show what it holds.
+        if (boxes->focus)
+        {
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImVec4 clear = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, clear);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, clear);
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, clear);
+        ImGui::PushStyleColor(ImGuiCol_InputTextCursor, clear);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                            ImVec2(ImGui::GetStyle().FramePadding.x, std::floor((height - ImGui::GetFontSize()) * 0.5f)));
+        ImGui::SetNextItemWidth(width);
+        RetroUiEditField field = {};
+        field.digits_only = true;
+        field.max_characters = total;
+        void* user_data = &field;
+        entered = ImGui::InputText("##code", digits, digits_size,
+                                   ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackEdit |
+                                       ImGuiInputTextFlags_CallbackCharFilter,
+                                   edit_field_callback, user_data);
+        typing = ImGui::IsItemActive();
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(6);
+    }
+    else
+    {
+        ImGui::Dummy(ImVec2(width, height));
+    }
+    // The boxes, over it. GetColorU32 takes the style's alpha: greyed out
+    // inside retro_ui_begin_disabled, like the controls around.
+    const RetroUiPalette* palette = retro_ui_palette();
+    ImU32 face = ImGui::GetColorU32(retro_ui_color_vec4(palette->field_face));
+    ImU32 edge = ImGui::GetColorU32(retro_ui_color_vec4(palette->highlight));
+    ImU32 edge_typing = ImGui::GetColorU32(retro_ui_color_vec4(palette->text_highlight));
+    ImU32 text = ImGui::GetColorU32(retro_ui_color_vec4(palette->field_text));
+    ImU32 missing = ImGui::GetColorU32(retro_ui_color_vec4(palette->text_disabled));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImFont* font = ImGui::GetFont();
+    float gap = spacing();
+    float column = std::floor((width - gap * static_cast<float>(groups - 1)) / static_cast<float>(groups));
+    float digit_width = font->CalcTextSizeA(big, 1.0e6f, 0.0f, "0").x;
+    float pitch = digit_width + block * 2.0f;   // the digits a little apart, "_" too
+    float group_width = pitch * static_cast<float>(group_digits) - block * 2.0f;
+    size_t length = std::strlen(digits);
+    uint32_t next = length < total ? static_cast<uint32_t>(length) : total - 1;   // where typing goes
+    for (uint32_t g = 0; g < groups; g++)
+    {
+        float x = origin.x + (column + gap) * static_cast<float>(g);
+        float this_width = g + 1 < groups ? column : width - (column + gap) * static_cast<float>(groups - 1);
+        ImVec2 min = ImVec2(x, origin.y);
+        ImVec2 max = ImVec2(x + this_width, origin.y + height);
+        draw_list->AddRectFilled(min, max, face);
+        bool here = typing && next / group_digits == g;
+        float thickness = here ? block * 2.0f : block;
+        ImU32 outline = here ? edge_typing : edge;
+        draw_list->AddRectFilled(min, ImVec2(max.x, min.y + thickness), outline);
+        draw_list->AddRectFilled(ImVec2(min.x, max.y - thickness), max, outline);
+        draw_list->AddRectFilled(min, ImVec2(min.x + thickness, max.y), outline);
+        draw_list->AddRectFilled(ImVec2(max.x - thickness, min.y), max, outline);
+        float digit_x = std::floor(x + (this_width - group_width) * 0.5f);
+        float digit_y = std::floor(origin.y + (height - big) * 0.5f);
+        for (uint32_t d = 0; d < group_digits; d++)
+        {
+            size_t index = static_cast<size_t>(g * group_digits + d);
+            char glyph[2] = {index < length ? digits[index] : '_', '\0'};
+            draw_list->AddText(font, big, ImVec2(digit_x + pitch * static_cast<float>(d), digit_y),
+                               index < length ? text : missing, glyph);
+        }
+    }
     ImGui::PopID();
     return entered;
 }

@@ -833,20 +833,36 @@ bool retro_ui_arrow_button(const char* id, RetroUiArrow direction, float width, 
     return pressed;
 }
 
-bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current)
+// Both choice rows: `width` 0 fits each button to its label, one retro pixel
+// apart (one control); otherwise the buttons split `width` equally, as far
+// apart as any two items (they line up with rows of equal buttons).
+static bool choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current, float width)
 {
     float block = retro_pixel();
     bool changed = false;
+    float gap = width > 0.0f ? ImGui::GetStyle().ItemSpacing.x : block;
+    float column = 0.0f;
+    if (width > 0.0f && count > 0)
+    {
+        column = std::floor((width - gap * static_cast<float>(count - 1)) / static_cast<float>(count));
+    }
     ImGui::PushID(id);
     for (uint32_t i = 0; i < count; i++)
     {
         if (i > 0)
         {
-            ImGui::SameLine(0.0f, block);   // one retro pixel apart: one control
+            ImGui::SameLine(0.0f, gap);
+        }
+        ImVec2 size = ImVec2(0.0f, 0.0f);
+        if (width > 0.0f)
+        {
+            // Whole pixels; the last takes what rounding left, so the row ends at `width`.
+            size.x = i + 1 < count ? column : width - gap * static_cast<float>(count - 1) -
+                                                  column * static_cast<float>(count - 1);
         }
         ImGui::PushID(static_cast<int>(i));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        bool clicked = ImGui::Button(labels[i]);
+        bool clicked = ImGui::Button(labels[i], size);
         ImGui::PopStyleColor();
         ImGui::PopID();
         if (clicked && i != *current)
@@ -884,6 +900,18 @@ bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t
     }
     ImGui::PopID();
     return changed;
+}
+
+bool retro_ui_choice_buttons(const char* id, const char* const* labels, uint32_t count, uint32_t* current)
+{
+    return choice_buttons(id, labels, count, current, 0.0f);
+}
+
+bool retro_ui_choice_buttons_equal(const char* id, const char* const* labels, uint32_t count, uint32_t* current,
+                                   float width)
+{
+    float row = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+    return choice_buttons(id, labels, count, current, row > 1.0f ? row : 1.0f);
 }
 
 bool retro_ui_begin_list(const char* id, float width, float height)
