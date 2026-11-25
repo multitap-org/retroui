@@ -63,6 +63,10 @@ void retro_ui_reserve_button(const char* label);
 // A button right after the last control, on the same line.
 bool retro_ui_row_button(const char* id, const char* label);
 
+// A button where the cursor is, its id kept while its label changes (the
+// language): focus and keyboard navigation stay on it.
+bool retro_ui_id_button(const char* id, const char* label);
+
 // The width of `text` in the current font.
 float retro_ui_text_width(const char* text);
 

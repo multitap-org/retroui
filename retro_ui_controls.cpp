@@ -154,6 +154,13 @@ bool retro_ui_row_button(const char* id, const char* label)
     return pressed;
 }
 
+bool retro_ui_id_button(const char* id, const char* label)
+{
+    char imgui_label[300] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###%s", label, id);
+    return retro_ui_button(imgui_label);
+}
+
 float retro_ui_text_width(const char* text)
 {
     return ImGui::CalcTextSize(text).x;
