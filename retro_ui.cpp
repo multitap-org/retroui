@@ -67,6 +67,58 @@ const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme)
     return &THEMES[index < static_cast<uint32_t>(RetroUiTheme::count) ? index : 0];
 }
 
+// ARGB -> its hue moved to red, lightness kept (HSL), alpha kept.
+static uint32_t red_twin(uint32_t argb)
+{
+    float r = static_cast<float>((argb >> 16) & 0xFFu) / 255.0f;
+    float g = static_cast<float>((argb >> 8) & 0xFFu) / 255.0f;
+    float b = static_cast<float>(argb & 0xFFu) / 255.0f;
+    float high = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    float low = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    float lightness = (high + low) / 2.0f;
+    float delta = high - low;
+    float saturation = 0.0f;
+    if (delta > 0.0f)
+    {
+        saturation = delta / (1.0f - std::fabs(2.0f * lightness - 1.0f));
+    }
+    if (saturation < 0.45f)
+    {
+        saturation = 0.45f;   // a grey face turns red too
+    }
+    if (saturation > 1.0f)
+    {
+        saturation = 1.0f;
+    }
+    // Hue 350 degrees: a red with a touch of crimson, like the mockups' #682a36.
+    float chroma = (1.0f - std::fabs(2.0f * lightness - 1.0f)) * saturation;
+    float hue = 350.0f / 60.0f;   // sector 5: red high, blue between, green low
+    float x = chroma * (1.0f - std::fabs(std::fmod(hue, 2.0f) - 1.0f));
+    float m = lightness - chroma / 2.0f;
+    float out_r = chroma + m;
+    float out_g = m;
+    float out_b = x + m;
+    uint32_t red = static_cast<uint32_t>(std::lround(out_r * 255.0f));
+    uint32_t green = static_cast<uint32_t>(std::lround(out_g * 255.0f));
+    uint32_t blue = static_cast<uint32_t>(std::lround(out_b * 255.0f));
+    return (argb & 0xFF000000u) | (red << 16) | (green << 8) | blue;
+}
+
+void retro_ui_danger_palette(const RetroUiPalette* base, RetroUiPalette* out)
+{
+    *out = *base;
+    uint32_t* faces[] = {&out->bar_face,      &out->bar_center,   &out->bar_light,    &out->bar_dark,
+                         &out->menu_box_face, &out->menu_box_light, &out->menu_box_dark, &out->menu_face,
+                         &out->panel_face,    &out->panel_light,  &out->panel_dark,   &out->field_face,
+                         &out->field_hover,   &out->highlight,    &out->title_top,    &out->title_bottom,
+                         &out->section,       &out->button_face,  &out->button_light, &out->button_dark,
+                         &out->button_bottom, &out->check};
+    for (size_t i = 0; i < sizeof(faces) / sizeof(faces[0]); i++)
+    {
+        *faces[i] = red_twin(*faces[i]);
+    }
+}
+
 void retro_ui_set_palette(const RetroUiPalette* palette)
 {
     g_palette = *palette;
@@ -637,6 +689,22 @@ void retro_ui_push_theme(ImFont* pixel_font, int32_t scale)
     // spacing), so it doesn't touch the buttons at the end of the rows.
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, (RETRO_UI_SCROLLBAR_WIDTH + RETRO_UI_SCROLLBAR_GAP) * block);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);   // bevels drawn instead
+}
+
+// retro_ui_push_palette's saved palette (one level: never nested).
+static RetroUiPalette g_palette_before = THEMES[0];
+
+void retro_ui_push_palette(const RetroUiPalette* palette)
+{
+    g_palette_before = g_palette;
+    g_palette = *palette;
+    push_theme_colors();
+}
+
+void retro_ui_pop_palette()
+{
+    ImGui::PopStyleColor(THEME_COLOR_COUNT);
+    g_palette = g_palette_before;
 }
 
 void retro_ui_pop_theme()
