@@ -44,8 +44,8 @@ struct RetroUiRow
     bool        enabled       = true;      // false: greyed out, `disabled_help` as the tooltip
     const char* disabled_help = nullptr;
     const char* end_button    = nullptr;   // nullptr: none, and no room kept
-    bool        end_button_hidden = false; // not drawn, but its room is kept (the controls
-                                           // don't change width when it appears)
+    bool        end_button_hidden = false; // drawn greyed out, not pressable: the controls
+                                           // keep their width and every row ends at the edge
     const char* end_button_help = nullptr;
 };
 
