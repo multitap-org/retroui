@@ -691,6 +691,22 @@ void retro_ui_push_theme(ImFont* pixel_font, int32_t scale)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);   // bevels drawn instead
 }
 
+// retro_ui_push_palette's saved palette (one level: never nested).
+static RetroUiPalette g_palette_before = THEMES[0];
+
+void retro_ui_push_palette(const RetroUiPalette* palette)
+{
+    g_palette_before = g_palette;
+    g_palette = *palette;
+    push_theme_colors();
+}
+
+void retro_ui_pop_palette()
+{
+    ImGui::PopStyleColor(THEME_COLOR_COUNT);
+    g_palette = g_palette_before;
+}
+
 void retro_ui_pop_theme()
 {
     ImGui::PopStyleVar(THEME_VAR_COUNT);
