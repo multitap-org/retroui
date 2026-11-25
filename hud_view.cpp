@@ -6,7 +6,6 @@
 #include "pixel_font.h"
 #include "retro_ui.h"
 
-constexpr float LINE = 7.0f;              // a line of the pixel font (glyphs 1..5 of it)
 constexpr float CHIP = 11.0f;             // the title chip
 constexpr float CHIP_LIP = 2.0f;          // a chip's bottom rows, darker (piccoletto's buttons)
 constexpr float CHIP_PADDING = 4.0f;
