@@ -134,6 +134,11 @@ struct RetroUiWindow
 bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* closed);
 void retro_ui_window_end();
 
+// The window being drawn goes above every other one, now (an editor that
+// must not hide under the menus). Any window: retroui's or an overlay
+// (touch_ui_begin_overlay).
+void retro_ui_bring_window_to_front();
+
 void retro_ui_text(const char* text);
 void retro_ui_text_format(const char* format, ...) RETRO_UI_PRINTF(1, 2);   // printf-style
 void retro_ui_text_wrapped(const char* text);              // wraps at the window's edge

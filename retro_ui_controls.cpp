@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "imgui.h"
+#include "imgui_internal.h"   // BringWindowToDisplayFront
 
 #include "retro_ui.h"
 
@@ -426,6 +427,11 @@ void retro_ui_window_end()
         retro_ui_end_window();
     }
     ImGui::End();
+}
+
+void retro_ui_bring_window_to_front()
+{
+    ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 }
 
 void retro_ui_text(const char* text)
