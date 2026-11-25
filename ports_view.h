@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-struct ImFont;
+#include "retro_ui_font.h"
 
 constexpr uint32_t PORTS_VIEW_MAX_PORTS = 8;
 
@@ -102,7 +102,7 @@ float ports_view_tabs_width(const PortsView* view);
 // The tabs, behind every window. `peek`: at their first line when nothing
 // changed; `hidden`: down (the board covers them); `front`: above every
 // window (a frontend that draws its screens in a window), else behind them.
-void ports_view_draw_tabs(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, bool peek,
+void ports_view_draw_tabs(PortsView* view, RetroUiFont* pixel_font, int32_t scale, const PortsViewText* text, bool peek,
                           bool hidden, bool front, uint64_t now_ms);
 
 // The column a chip is in (-1 = OUT), or false.
@@ -126,5 +126,5 @@ void ports_view_open_board(PortsView* view);
 
 // The board, above everything: a sheet from the bottom (40% of the screen,
 // more only if a column needs it); a click on a chip picks it.
-void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
+void ports_view_draw_board(PortsView* view, RetroUiFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
                            PortsViewBoardInput* input);

@@ -34,7 +34,7 @@
 
 #include <cstdint>
 
-struct ImFont;
+#include "retro_ui_font.h"
 
 constexpr uint32_t HUD_VIEW_MAX_CARDS = 8;
 constexpr uint32_t HUD_VIEW_MAX_ICONS = 8;
@@ -120,4 +120,4 @@ HudRect hud_view_card_rect(const HudStack* stack, const HudArea* area, uint32_t 
 HudRect hud_view_icon_rect(const HudStack* stack, const HudArea* area, uint32_t index);
 
 // Both stacks, behind every window, at `scale` window pixels per retro pixel.
-void hud_view_draw(const HudStack* stack, const HudArea* area, ImFont* pixel_font, int32_t scale, uint64_t now_ms);
+void hud_view_draw(const HudStack* stack, const HudArea* area, RetroUiFont* pixel_font, int32_t scale, uint64_t now_ms);

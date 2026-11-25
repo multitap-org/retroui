@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-struct ImFont;
+#include "retro_ui_font.h"
 struct TouchUi;
 
 constexpr uint64_t SHADER_CHECK_ANSWER_MS = 15000;
@@ -43,7 +43,7 @@ struct ShaderCheckText
 
 // `preset`: the preset's name; measured_fps and target_fps for the text;
 // asked_ms / now_ms: when it was asked, for REVERT's countdown.
-ShaderCheckChoice shader_check_view_draw_window(ImFont* pixel_font, int32_t scale, const ShaderCheckText* text,
+ShaderCheckChoice shader_check_view_draw_window(RetroUiFont* pixel_font, int32_t scale, const ShaderCheckText* text,
                                                 const char* preset, double measured_fps, double target_fps,
                                                 uint64_t asked_ms, uint64_t now_ms);
 ShaderCheckChoice shader_check_view_draw_sheet(const TouchUi* ui, const ShaderCheckText* text, const char* preset,

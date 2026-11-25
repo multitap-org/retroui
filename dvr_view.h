@@ -30,7 +30,7 @@
 
 #include <cstdint>
 
-struct ImFont;
+#include "retro_ui_font.h"
 
 constexpr uint32_t DVR_VIEW_MAX_THUMBS = 15;
 constexpr uint32_t DVR_VIEW_MAX_HINTS  = 6;
@@ -38,7 +38,7 @@ constexpr uint32_t DVR_VIEW_LABEL_MAX  = 16;
 
 struct DvrViewThumb
 {
-    uint64_t texture = 0;      // an ImTextureID; 0: not made yet (an empty card)
+    uint64_t texture = 0;      // the GUI's handle; 0: not made yet (an empty card)
     float    u_max   = 1.0f;   // the part of the texture with the picture
     float    v_max   = 1.0f;
     char     label[DVR_VIEW_LABEL_MAX] = {};   // its time ("-0:30")
@@ -113,5 +113,5 @@ struct DvrViewInput
 float dvr_view_height(const DvrView* view, int32_t scale);
 
 // The strip, above every window (it is one: the DVR's GUI).
-void dvr_view_draw(const DvrView* view, ImFont* pixel_font, int32_t scale, const DvrViewText* text,
+void dvr_view_draw(const DvrView* view, RetroUiFont* pixel_font, int32_t scale, const DvrViewText* text,
                    DvrViewInput* input);
