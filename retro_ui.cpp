@@ -74,6 +74,14 @@ void retro_ui_set_palette(const RetroUiPalette* palette)
     // retro_ui_text_shadows(); without it they are plain shapes (and the
     // UI's lines are one pixel, square, anyway).
     ImGui::GetStyle().AntiAliasedLinesUseTex = false;
+    // No dimming of ImGui's own behind a modal (a question, SAVE THEME) or
+    // the window switcher: the frontend draws one backdrop behind every
+    // window (piccolo's BACKDROP), and a second one over it darkened the
+    // screen twice (Andrés, testing round 1). ImGui reads these colors
+    // when it renders, after the theme's pushed colors are gone, so they
+    // are set in the style itself.
+    ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    ImGui::GetStyle().Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 ImVec4 retro_ui_color_vec4(uint32_t argb)

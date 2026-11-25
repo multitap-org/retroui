@@ -69,7 +69,8 @@ enum class RetroUiTheme
 // The built-in palette of a theme.
 const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme);
 
-// The palette everything is drawn with from now on (copied).
+// The palette everything is drawn with from now on (copied). Modals don't
+// dim the screen behind them: the frontend draws one backdrop of its own.
 void retro_ui_set_palette(const RetroUiPalette* palette);
 
 // The scale for a window: the biggest whole block that leaves at least
