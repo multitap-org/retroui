@@ -348,6 +348,22 @@ void retro_ui_end_choice()
     ImGui::PopID();
 }
 
+bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note)
+{
+    ImGui::PushID(static_cast<int>(index));
+    char imgui_label[512] = {};
+    std::snprintf(imgui_label, sizeof(imgui_label), "%s###item", label);
+    bool clicked = ImGui::Selectable(imgui_label, selected);
+    if (note != nullptr)
+    {
+        // At the list's right end, whether its scroll bar shows or not.
+        ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(note).x - spacing() * 2.0f);
+        ImGui::TextDisabled("%s", note);
+    }
+    ImGui::PopID();
+    return clicked;
+}
+
 // ---------------------------------------------------------------------------
 // Windows, text and layout.
 
@@ -514,6 +530,20 @@ void retro_ui_text_wrapped(const char* text)
 {
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextUnformatted(text);
+    ImGui::PopTextWrapPos();
+}
+
+void retro_ui_text_wrapped_at(const char* text, float wrap_x)
+{
+    ImGui::PushTextWrapPos(wrap_x);
+    ImGui::TextUnformatted(text);
+    ImGui::PopTextWrapPos();
+}
+
+void retro_ui_dim_text_wrapped_at(const char* text, float wrap_x)
+{
+    ImGui::PushTextWrapPos(wrap_x);
+    ImGui::TextDisabled("%s", text);
     ImGui::PopTextWrapPos();
 }
 

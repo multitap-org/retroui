@@ -110,6 +110,11 @@ bool retro_ui_begin_choice(const char* id, const char* preview);
 bool retro_ui_choice_item(uint32_t index, const char* label, bool selected);
 void retro_ui_end_choice();
 
+// An item of a list (retro_ui_begin_list): `label`, highlighted while
+// `selected`, and `note` (nullptr: none) dimmed at the list's right end (e.g.
+// PAIRED). True when it was clicked or activated, selected or not.
+bool retro_ui_list_item(uint32_t index, const char* label, bool selected, const char* note);
+
 // ---------------------------------------------------------------------------
 // Windows, text and layout. The window's frame is the theme's (light edge,
 // pixel X); positions and sizes are in window pixels.
@@ -165,6 +170,10 @@ void retro_ui_end_group();
 void retro_ui_text(const char* text);
 void retro_ui_text_format(const char* format, ...) RETRO_UI_PRINTF(1, 2);   // printf-style
 void retro_ui_text_wrapped(const char* text);              // wraps at the window's edge
+// Wraps `wrap_x` from the window's left edge (0: at the window's edge), in
+// the text color or greyed out: a paragraph kept narrower than the window.
+void retro_ui_text_wrapped_at(const char* text, float wrap_x);
+void retro_ui_dim_text_wrapped_at(const char* text, float wrap_x);
 void retro_ui_text_colored(uint32_t argb, const char* text);
 void retro_ui_label(const char* text);                     // lined up with the controls beside it
 
