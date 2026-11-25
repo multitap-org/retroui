@@ -116,6 +116,8 @@ bool retro_ui_text_field(const char* id, const char* hint, const char* value, ch
 struct RetroUiEditField
 {
     bool     digits_only    = false;   // only 0-9 can be typed (a number)
+    bool     decimal        = false;   // 0-9 and . + - * / can be typed (a number, the way the
+                                       // pairing code fields always took it)
     uint32_t max_characters = 0;       // 0: as many as `buffer` holds
     bool     focus          = false;   // the keyboard focus goes to it now (typing starts at once)
     bool     read_only      = false;   // shown (selected, scrolled) but not edited: a link to copy

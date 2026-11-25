@@ -358,6 +358,10 @@ bool retro_ui_edit_field(const char* id, char* buffer, size_t buffer_size, const
     {
         flags |= ImGuiInputTextFlags_ReadOnly;
     }
+    if (field->decimal)
+    {
+        flags |= ImGuiInputTextFlags_CharsDecimal;
+    }
     if (field->uppercase)
     {
         flags |= ImGuiInputTextFlags_CharsUppercase;
