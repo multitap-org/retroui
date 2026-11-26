@@ -22,6 +22,8 @@ The retro-style UI shared by multitap's frontends (piccolo, piccoletto):
   `ShownImage`: a texture over a rectangle).
 - `hud_view`: the HUD cards over the game; `dvr_view`: the rewind DVR's
   strip; `shader_check_view`: the question when a shader preset is too slow.
+- `snow_view`: the menu snow (an easter egg after ZSNES's GUI snow), one
+  pixel a flake behind every window, and the December 25 sleigh.
 - `pad_picture`: a controller drawn as blocks, one part lit.
 - `ports_view`: who plays on which port: tabs that rise from the bottom left
   when a port changes, and the full-screen DEVICES board; `port_indicators.h`

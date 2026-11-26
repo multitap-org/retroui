@@ -33,6 +33,7 @@ add_library(retroui STATIC
     pad_layout.cpp
     pad_layouts.cpp
     pad_editor.cpp
+    snow_view.cpp
 )
 target_include_directories(retroui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(retroui PUBLIC retroui_font imgui SDL3::SDL3 frontend_common)
@@ -71,4 +72,10 @@ if(MULTITAP_BUILD_TESTS)
     target_link_libraries(retroui_hud_view_test PRIVATE retroui)
     multitap_set_project_flags(retroui_hud_view_test)
     add_test(NAME retroui_hud_view COMMAND retroui_hud_view_test)
+
+    # The menu snow: the 36 Hz step, wrapping, the start from the sky, the season, the sleigh.
+    add_executable(retroui_snow_view_test tests/snow_view_test.cpp)
+    target_link_libraries(retroui_snow_view_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_snow_view_test)
+    add_test(NAME retroui_snow_view COMMAND retroui_snow_view_test)
 endif()
