@@ -273,7 +273,10 @@ bool retro_ui_color_field(const char* id, uint32_t* argb)
     ImVec4 color = retro_ui_color_vec4(*argb);
     float rgb[3] = {color.x, color.y, color.z};
     bool changed = ImGui::ColorEdit3("##color", rgb, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
-                                                        ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoAlpha);
+                                                        ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoAlpha |
+                                                        ImGuiColorEditFlags_NoBorder);
+    // (NoBorder: ImGui outlines a swatch in the field color by default, a
+    // thin line no theme draws; our raised edge below is its only frame.)
     if (changed)
     {
         uint32_t picked = 0xFF000000u;
