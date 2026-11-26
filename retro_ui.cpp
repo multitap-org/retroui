@@ -474,6 +474,12 @@ static int32_t bar_menu(const RetroUiMenu* menu, float block, bool open_now)
     return picked;
 }
 
+// 2 + 8 (the font's line) + 2 retro pixels: retro_ui_menu_bar's frame padding.
+float retro_ui_menu_bar_height(int32_t scale)
+{
+    return 12.0f * static_cast<float>(scale);
+}
+
 int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* menus, int32_t menu_count,
                           bool open_first_menu)
 {

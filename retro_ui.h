@@ -151,6 +151,10 @@ struct RetroUiMenu
 int32_t retro_ui_menu_bar(RetroUiFont* pixel_font, int32_t scale, const RetroUiMenu* menus, int32_t menu_count,
                           bool open_first_menu);
 
+// The menu bar's height in window pixels at `scale` (what's below it is the
+// screen's free area).
+float retro_ui_menu_bar_height(int32_t scale);
+
 // One line of text at the bottom left of the window, behind other windows, in
 // the pixel font with a drop shadow.
 void retro_ui_status_line(RetroUiFont* pixel_font, int32_t scale, const char* text);
