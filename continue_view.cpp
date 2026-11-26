@@ -2,6 +2,7 @@
 
 #include <cfloat>
 #include <cmath>
+#include <cstdio>
 
 #include "imgui.h"
 #include "imgui_internal.h"   // BringWindowToDisplayBack
@@ -111,8 +112,19 @@ ContinueViewButton continue_view_draw_panel(ImFont* pixel_font, int32_t scale, c
     float big = PIXEL_FONT_IMGUI_UNIT * (block + 1.0f);   // one whole step up: still sharp
     float button_height = BUTTON_HEIGHT * block;
 
+    // "CORE · SYSTEM" on one line (wrapped when long).
+    char detail[512] = {};
+    if (card->system[0] != '\0')
+    {
+        std::snprintf(detail, sizeof(detail), "%s \xC2\xB7 %s", card->core, card->system);
+    }
+    else
+    {
+        std::snprintf(detail, sizeof(detail), "%s", card->core);
+    }
+
     // The text column, top down, then the buttons and the hint at its bottom.
-    float text_height = wrapped_height(big, info, card->game) + line_gap + wrapped_height(font, info, card->detail) +
+    float text_height = wrapped_height(big, info, card->game) + line_gap + wrapped_height(font, info, detail) +
                         line_gap + wrapped_height(font, info, card->when);
     if (card->reason[0] != '\0')
     {
@@ -171,7 +183,7 @@ ContinueViewButton continue_view_draw_panel(ImFont* pixel_font, int32_t scale, c
     float text_x = x + pad + picture_width + gap;
     float text_y = y + pad;
     text_y += draw_wrapped(draw_list, big, text_x, text_y, info, card->game, palette->text_highlight) + line_gap;
-    text_y += draw_wrapped(draw_list, font, text_x, text_y, info, card->detail, palette->text_disabled) + line_gap;
+    text_y += draw_wrapped(draw_list, font, text_x, text_y, info, detail, palette->text_disabled) + line_gap;
     text_y += draw_wrapped(draw_list, font, text_x, text_y, info, card->when, palette->text_disabled);
     if (card->reason[0] != '\0')
     {
@@ -219,9 +231,22 @@ ContinueViewButton continue_view_draw_panel(ImFont* pixel_font, int32_t scale, c
 void continue_view_card_picture_size(const ContinueViewCard* card, float width, float* picture_width,
                                      float* picture_height)
 {
-    float room = card->picture_max_height > 0.0f ? card->picture_max_height : CONTINUE_VIEW_CARD_PICTURE_HEIGHT;
-    continue_view_picture_size(card->aspect_width, card->aspect_height, width - 2.0f * CARD_PADDING, room,
-                               picture_width, picture_height);
+    // The card's whole width, any size (sharp bilinear takes the fraction);
+    // narrower, centered, only when a height is imposed.
+    double aspect = 4.0 / 3.0;
+    if (card->aspect_width > 0 && card->aspect_height > 0)
+    {
+        aspect = static_cast<double>(card->aspect_width) / static_cast<double>(card->aspect_height);
+    }
+    double fit_width = static_cast<double>(width);
+    double fit_height = fit_width / aspect;
+    if (card->picture_max_height > 0.0f && fit_height > static_cast<double>(card->picture_max_height))
+    {
+        fit_height = static_cast<double>(card->picture_max_height);
+        fit_width = fit_height * aspect;
+    }
+    *picture_width = static_cast<float>(fit_width > 1.0 ? fit_width : 1.0);
+    *picture_height = static_cast<float>(fit_height > 1.0 ? fit_height : 1.0);
 }
 
 float continue_view_card_height(const TouchUi* ui, const ContinueViewCard* card, float width)
@@ -231,14 +256,18 @@ float continue_view_card_height(const TouchUi* ui, const ContinueViewCard* card,
     float picture_height = 0.0f;
     continue_view_card_picture_size(card, width, &picture_width, &picture_height);
     float line = touch_ui_text_height(ui, TouchText::normal);
-    float content = picture_height + CARD_GAP + touch_ui_text_wrapped_height(ui, inner, card->game, TouchText::big) +
+    float content = picture_height + CARD_PADDING + touch_ui_text_wrapped_height(ui, inner, card->game, TouchText::big) +
                     CARD_GAP + line + CARD_GAP + line;
+    if (card->system[0] != '\0')
+    {
+        content += touch_ui_text_wrapped_height(ui, inner, card->system, TouchText::normal);
+    }
     if (card->reason[0] != '\0')
     {
         content += CARD_GAP + touch_ui_text_wrapped_height(ui, inner, card->reason, TouchText::normal);
     }
     content += CARD_GAP + CARD_BUTTON;
-    return 2.0f * CARD_PADDING + content;
+    return content + CARD_PADDING;   // the picture at the top edge, no padding above
 }
 
 ContinueViewButton continue_view_draw_card(const TouchUi* ui, const ContinueViewCard* card, float x, float y,
@@ -255,20 +284,25 @@ ContinueViewButton continue_view_draw_card(const TouchUi* ui, const ContinueView
     *height = card_height;
 
     touch_ui_rect(ui, x, y, width, card_height, palette->field_face);
-    float picture_x = std::floor(x + (width - picture_width) * 0.5f);
-    float top = y + CARD_PADDING;
+    float picture_x = x + (width - picture_width) * 0.5f;
+    float top = y;
     touch_ui_rect(ui, picture_x, top, picture_width, picture_height, 0xFF000000u);
     if (card->texture != 0)
     {
         touch_ui_image_smooth(ui, card->texture, picture_x, top, picture_width, picture_height, card->u_max,
                               card->v_max);
     }
-    top += picture_height + CARD_GAP;
+    top += picture_height + CARD_PADDING;
     float text_x = x + CARD_PADDING;
     top += touch_ui_text_wrapped(ui, text_x, top, inner, card->game, palette->text_highlight, TouchText::big) +
            CARD_GAP;
-    touch_ui_text(ui, text_x, top, card->detail, palette->text_disabled, TouchText::normal);
-    top += line + CARD_GAP;
+    touch_ui_text(ui, text_x, top, card->core, palette->text_disabled, TouchText::normal);
+    top += line;
+    if (card->system[0] != '\0')
+    {
+        top += touch_ui_text_wrapped(ui, text_x, top, inner, card->system, palette->text_disabled, TouchText::normal);
+    }
+    top += CARD_GAP;
     touch_ui_text(ui, text_x, top, card->when, palette->text_disabled, TouchText::normal);
     top += line;
     if (card->reason[0] != '\0')
