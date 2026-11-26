@@ -75,6 +75,10 @@ if(MULTITAP_BUILD_TESTS)
     target_link_libraries(retroui_continue_view_test PRIVATE retroui)
     multitap_set_project_flags(retroui_continue_view_test)
     add_test(NAME retroui_continue_view COMMAND retroui_continue_view_test)
+    add_executable(retroui_theme_contrast_test tests/theme_contrast_test.cpp)
+    target_link_libraries(retroui_theme_contrast_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_theme_contrast_test)
+    add_test(NAME retroui_theme_contrast COMMAND retroui_theme_contrast_test)
     set_tests_properties(retroui_continue_view PROPERTIES PASS_REGULAR_EXPRESSION "continue view: all checks passed")
 
     # The HUD's stacks: icons top right, cards bottom right, nothing overlapping.

@@ -12,7 +12,9 @@
 constexpr float RETRO_UI_SCROLLBAR_WIDTH = 5.0f;
 constexpr float RETRO_UI_SCROLLBAR_GAP = 4.0f;
 
-// The built-in themes (0xAARRGGBB).
+// The built-in themes (0xAARRGGBB). No element's face is the color of what
+// it sits on (Andrés, 2026-11-26: a button the screen's color is only its
+// label): checked by tests/theme_contrast_test.cpp.
 static const RetroUiPalette THEMES[] = {
     // BLUE: piccolo's colors, navy blue, the default; no drop shadows on windows.
     {0xFF34507Cu, false,
@@ -23,7 +25,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFE0E6F0u, 0xFFFFFFFFu, 0xFF8090B0u, 0xFF101828u,
      0xFF34507Cu, 0xFF34507Cu,
      0xFFFFFFFFu, 0xFFE0E6F0u,
-     0xFF34507Cu, 0xFF34507Cu, 0xFF34507Cu, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF34507Cu, 0xFF8CB4F0u, 40u},
+     0xFF4A6898u, 0xFF4A6898u, 0xFF4A6898u, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF4A6898u, 0xFF8CB4F0u, 40u},
     // PURPLE: atomic purple, a see-through grape like the handheld shells; no
     // drop shadows on windows.
     {0xFF5B2D83u, false,
@@ -34,7 +36,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFE9DEF2u, 0xFFFFFFFFu, 0xFF9A7BB5u, 0xFF1D0E2Au,
      0xFF5B2D83u, 0xFF5B2D83u,
      0xFFFFFFFFu, 0xFFE9DEF2u,
-     0xFF5B2D83u, 0xFF5B2D83u, 0xFF5B2D83u, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF5B2D83u, 0xFFC282FAu, 40u},
+     0xFF70409Eu, 0xFF70409Eu, 0xFF70409Eu, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF70409Eu, 0xFFC282FAu, 40u},
     // ZSNES: purple background, a deep blue gradient bar with grey boxes
     // behind the menu titles, grey menus with a magenta highlight, blue
     // windows with black fields, drop shadows everywhere.
