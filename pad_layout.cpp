@@ -312,14 +312,34 @@ void pad_text(const TouchUi* ui, const PadFrame* frame, float x, float y, const 
     touch_ui_text(ui, std::floor(left), pad_y(frame, y), text, argb, size);
 }
 
+// A held part with a look: never fainter than this, so a press shows
+// even on a see-through pad.
+constexpr float LIT_ALPHA_MIN = 0.6f;
+
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
-                   bool overlay, float stick_x, float stick_y)
+                   bool overlay, float stick_x, float stick_y, const PadLook* look)
 {
     const RetroUiPalette* palette = &ui->palette;
     uint32_t face = overlay ? palette->button_face : palette->field_face;
     uint32_t text = overlay ? palette->text_highlight : palette->field_text;
     uint32_t nub = overlay ? palette->field_face : palette->button_face;
-    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? PART_LIT : face, alpha));
+    float face_alpha = alpha;
+    float nub_alpha = alpha;
+    float text_alpha = alpha;
+    if (look != nullptr)
+    {
+        face = palette->overlay_fill;
+        nub = palette->overlay_border;
+        text = palette->overlay_text;
+        face_alpha = held && look->fill < LIT_ALPHA_MIN ? LIT_ALPHA_MIN : look->fill;
+        nub_alpha = look->border;
+        text_alpha = held ? 1.0f : look->labels;
+    }
+    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? PART_LIT : face, face_alpha));
+    if (look != nullptr && look->border > 0.0f)
+    {
+        touch_ui_outline(ui, x, y, width, height, 1.0f, retro_ui_color_with_alpha(palette->overlay_border, look->border));
+    }
     if (part->kind == PadPartKind::stick)
     {
         // The nub: the body's color, 40% of the block, in the middle at
@@ -329,13 +349,13 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
         float travel_x = (width - nub_width) * 0.5f;
         float travel_y = (height - nub_height) * 0.5f;
         touch_ui_rect(ui, std::floor(x + travel_x + stick_x * travel_x), std::floor(y + travel_y + stick_y * travel_y), nub_width,
-                      nub_height, retro_ui_color_with_alpha(nub, alpha));
+                      nub_height, retro_ui_color_with_alpha(nub, nub_alpha));
     }
     if (part->label[0] != '\0')
     {
         float text_width = touch_ui_text_width(ui, part->label, part->size);
         touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, part->size),
-                      part->label, retro_ui_color_with_alpha(held ? PART_LIT_TEXT : text, alpha), part->size);
+                      part->label, retro_ui_color_with_alpha(held ? PART_LIT_TEXT : text, text_alpha), part->size);
     }
 }
 
@@ -594,9 +614,11 @@ static bool lit_part(const TouchUi* ui, const PadPart* part, float* stick_x, flo
 bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown)
 {
     *shown = layout->parts[part];
-    if (shown->kind == PadPartKind::action || shown->kind == PadPartKind::menu)
+    if (shown->kind == PadPartKind::action || shown->kind == PadPartKind::menu || shown->kind == PadPartKind::edit)
     {
-        const char* label = shown->kind == PadPartKind::action ? layout->action_label : layout->menu_label;
+        const char* label = shown->kind == PadPartKind::action ? layout->action_label
+                            : shown->kind == PadPartKind::menu ? layout->menu_label
+                                                               : layout->edit_label;
         if (label == nullptr)
         {
             return false;
@@ -635,10 +657,13 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
     uint32_t held_now = 0;
     bool action_was_held = layout->action_held;
     bool menu_was_held = layout->menu_held;
+    bool edit_was_held = layout->edit_held;
     layout->action_held = false;
     layout->action_pressed = false;
     layout->menu_held = false;
     layout->menu_pressed = false;
+    layout->edit_held = false;
+    layout->edit_pressed = false;
     uint32_t dpad = dpad_held(ui, frame, layout);
     uint32_t pair = pair_held(ui, frame, layout);
     for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
@@ -697,6 +722,11 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
             layout->menu_held = true;
             layout->menu_pressed = !menu_was_held;
         }
+        if (touched && part->kind == PadPartKind::edit)
+        {
+            layout->edit_held = true;
+            layout->edit_pressed = !edit_was_held;
+        }
         if (touched && is_button && ui->pad != nullptr)
         {
             // What the pad gives: the parts fingers hold (a real gamepad's
@@ -725,7 +755,7 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
             }
         }
         pad_part_draw(ui, part, screen_x, screen_y, screen_width, screen_height, layout->alpha, held, layout->overlay, stick_x,
-                      stick_y);
+                      stick_y, layout->look);
     }
     layout->held = held_now;
 }

@@ -47,6 +47,9 @@ static const char* const COLOR_KEYS[] = {
     "ui_color_field_text",
     "ui_color_cursor",
     "ui_color_cursor_edge",
+    "ui_color_overlay_fill",
+    "ui_color_overlay_border",
+    "ui_color_overlay_text",
 };
 constexpr uint32_t COLOR_COUNT = static_cast<uint32_t>(sizeof(COLOR_KEYS) / sizeof(COLOR_KEYS[0]));
 
@@ -162,6 +165,12 @@ uint32_t* retro_ui_palette_color(RetroUiPalette* palette, uint32_t index)
         return &palette->cursor;
     case 30:
         return &palette->cursor_edge;
+    case 31:
+        return &palette->overlay_fill;
+    case 32:
+        return &palette->overlay_border;
+    case 33:
+        return &palette->overlay_text;
     default:
         return &palette->text;
     }

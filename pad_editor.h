@@ -2,7 +2,8 @@
 
 // EDIT LAYOUT: drag any group of the pad (d-pad, buttons, a stick...) to move
 // it, SIZE - / + resizes the picked group, OPACITY - / + the whole layout
-// (for overlays), SNAP keeps moves on an 8 dp grid, RESET puts everything
+// (for overlays; with a frontend's PadLook, three sliders instead: FILL,
+// BORDER and LABELS, for every layout), SNAP keeps moves on an 8 dp grid, RESET puts everything
 // back, DONE leaves (the app saves). The toolbar sits at the top or the
 // bottom, away from the picked group. Two fingers anywhere pinch the
 // picked group's size (dragging stops while they're down).
@@ -20,6 +21,10 @@ struct PadEditor
     bool     pinching       = false;
     float    pinch_distance = 0.0f;   // between the two fingers when the pinch began
     float    pinch_scale    = 1.0f;   // the group's size then
+    // The frontend's look (PadLook): its sliders change it; `look_changed`
+    // says so (the frontend keeps it and clears the flag). nullptr: OPACITY.
+    PadLook* look         = nullptr;
+    bool     look_changed = false;
 };
 
 // Draws the layout being edited instead of playing it. True when DONE was tapped.

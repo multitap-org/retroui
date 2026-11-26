@@ -9,6 +9,7 @@ constexpr PadPartKind BUTTON = PadPartKind::button;
 constexpr PadPartKind STICK = PadPartKind::stick;
 constexpr PadPartKind ACTION = PadPartKind::action;   // its label comes from the frontend
 constexpr PadPartKind MENU = PadPartKind::menu;       // the same (piccolo: MAIN MENU)
+constexpr PadPartKind EDIT = PadPartKind::edit;       // the same (piccolo: EDIT LAYOUT)
 constexpr TouchText NORMAL = TouchText::normal;
 constexpr TouchText BIG = TouchText::big;
 constexpr PadGroup LSH = PadGroup::left_shoulders;
@@ -74,6 +75,7 @@ static const PadPart LANDSCAPE_PAD[] = {
     {"##select", "SELECT", 268, 350, 84, 36, BUTTON, NORMAL, CENTER},
     {"##hotkey", "HOTKEY", 360, 350, 124, 36, ACTION, NORMAL, CENTER},
     {"##start", "START", 492, 350, 84, 36, BUTTON, NORMAL, CENTER},
+    {"##edit", "EDIT", 584, 350, 72, 36, EDIT, NORMAL, CENTER},
 };
 
 // REMOTE PLAY, portrait, under the picture (390 x 420 dp: the controls of the
@@ -104,6 +106,7 @@ static const PadPart REMOTE_BELOW[] = {
     {"##hotkey", "HOTKEY", 294, 262, 88, 32, ACTION, NORMAL, CENTER},
     {"##lstick", "", 60, 312, 96, 96, STICK, NORMAL, LSTICK},
     {"##rstick", "", 234, 312, 96, 96, STICK, NORMAL, RSTICK},
+    {"##edit", "EDIT", 163, 344, 64, 32, EDIT, NORMAL, CENTER},
 };
 
 // REMOTE PLAY, portrait, over a tall picture (390 x 844 dp): the controls
@@ -129,6 +132,7 @@ static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
     {"##select", "SELECT", 110, 806, 80, 32, BUTTON, NORMAL, CENTER},
     {"##start", "START", 200, 806, 80, 32, BUTTON, NORMAL, CENTER},
     {"##hotkey", "HOTKEY", 290, 806, 88, 32, ACTION, NORMAL, CENTER},
+    {"##edit", "EDIT", 155, 744, 80, 32, EDIT, NORMAL, CENTER},
 };
 
 static void define(PadLayouts* layouts, PadLayoutId id, const char* name, const PadPart* parts, int32_t count, float width,

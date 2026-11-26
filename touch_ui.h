@@ -148,6 +148,12 @@ int32_t touch_ui_choices(const TouchUi* ui, const char* id, const char* const* n
 int32_t touch_ui_stepper(const TouchUi* ui, const char* id, const char* value, float x, float y, float width,
                          float height);
 
+// A slider over the whole width: a track filled up to `*value` (0..1) with
+// `text` centered on it; a finger (or the mouse) on it sets the value where
+// it is, dragging follows. True when the value changed this frame.
+bool touch_ui_slider(const TouchUi* ui, const char* id, float* value, const char* text, float x, float y, float width,
+                     float height);
+
 // A rectangle's edge, `thickness` retro pixels inside it (a picked row, a
 // group in EDIT LAYOUT).
 void touch_ui_outline(const TouchUi* ui, float x, float y, float width, float height, float thickness, uint32_t argb);

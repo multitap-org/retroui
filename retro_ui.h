@@ -55,6 +55,11 @@ struct RetroUiPalette
     uint32_t cursor;           // its color...
     uint32_t button_bottom;    // ...and bottom of buttons (a vertical gradient; the same = flat)
     uint32_t cursor_edge;      // ...and its top / right edge (the same = flat)
+    // The touch gamepad (pad_layout): its parts' faces, their outlines (and
+    // a stick's nub) and their labels; how see-through each is, the frontend's (PadLook).
+    uint32_t overlay_fill;
+    uint32_t overlay_border;
+    uint32_t overlay_text;
     // How much of the game shows through `background` while the menu or a
     // window is up over it, in percent (0: the background color covers it,
     // 100: no background over the game). The frontend draws that layer.

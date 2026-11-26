@@ -30,6 +30,19 @@ enum class PadPartKind
     action,   // the frontend's own button (piccoletto: HOTKEY, with STREAM access;
               // piccolo: QUICK MENU), labelled by it; shown only when it gives a label
     menu,     // a second one of the frontend's (piccolo: MAIN MENU), the same way
+    edit,     // a third one (piccolo: EDIT, opens EDIT LAYOUT), the same way
+};
+
+// How see-through the parts are, each piece on its own, 0..1 (Andrés,
+// 2026-11-26): the faces, their outlines (and a stick's nub), the labels.
+// One for every layout, upright or sideways; its colors are the theme's
+// (RetroUiPalette overlay_fill / _border / _text). Set by the frontend
+// (PadLayout::look); EDIT LAYOUT's sliders change it (PadEditor::look).
+struct PadLook
+{
+    float fill   = 0.2f;
+    float border = 0.5f;
+    float labels = 0.7f;
 };
 
 // What moves together in EDIT LAYOUT.
@@ -109,6 +122,13 @@ struct PadLayout
     const char*    menu_label     = nullptr;  // the menu button's label, the same way
     bool           menu_held      = false;
     bool           menu_pressed   = false;
+    const char*    edit_label     = nullptr;  // the edit button's label, the same way
+    bool           edit_held      = false;
+    bool           edit_pressed   = false;
+    // The frontend's look: the theme's overlay colors at these opacities,
+    // the same in every layout (alpha and `overlay` aren't used then).
+    // nullptr: the layout's own alpha (piccoletto).
+    const PadLook* look           = nullptr;
 };
 
 constexpr int32_t PAD_MAX_PARTS = 32;   // `held`'s bits
@@ -200,9 +220,10 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
 // One part at screen position (retro pixels), at `alpha`; `held` lit;
 // `overlay`: in the button color (over a picture) instead of the field color
 // (on the pad's body). A stick's nub is drawn at (stick_x, stick_y), -1..1
-// from the middle.
+// from the middle. With `look`: the theme's overlay colors at its opacities
+// instead (alpha and overlay unused), each part outlined.
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
-                   bool overlay, float stick_x, float stick_y);
+                   bool overlay, float stick_x, float stick_y, const PadLook* look = nullptr);
 
 // A flat block (the pad's body, a bezel) in reference dp.
 void pad_block(const TouchUi* ui, const PadFrame* frame, float x, float y, float width, float height, uint32_t argb);
