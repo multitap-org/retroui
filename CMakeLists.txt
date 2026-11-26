@@ -27,6 +27,7 @@ add_library(retroui STATIC
     port_indicators.cpp
     dvr_view.cpp
     hud_view.cpp
+    touch_header.cpp
     touch_ui.cpp
     touch_fingers.cpp
     retropad.cpp

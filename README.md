@@ -29,6 +29,11 @@ The retro-style UI shared by multitap's frontends (piccolo, piccoletto):
 - `touch_ui`, `touch_fingers`, `pad_layout(s)`, `pad_editor`, `retropad`: the
   touch UI (piccoletto's screens) and the touch pads of both frontends, with
   EDIT LAYOUT.
+- `touch_header`: a touch screen's header (name or back arrow at the left, icons
+  at the right), piccoletto's title bar shared with piccolo's phone UI.
+- Page mode (`retro_ui_set_page_mode`): on a phone every window is a full-screen
+  page with a back arrow, rows with the label above the control; the same
+  windows and widgets as the desktop.
 - `tools/pixel_font_preview`: a PNG of every glyph; `--check` is a test.
 
 A library: it doesn't build on its own. A frontend adds it as a submodule

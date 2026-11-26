@@ -55,6 +55,15 @@ void retro_ui_next_width(float width)
     g_next_width = width;
 }
 
+// Page mode upright (a phone held up): a label column would leave the
+// controls too little width, so labels go above them. Sideways the screen is
+// wide enough for the desktop's row.
+static bool stack_rows()
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    return retro_ui_page_mode() && io.DisplaySize.y > io.DisplaySize.x;
+}
+
 void retro_ui_row_begin(const RetroUiRow* row)
 {
     ImGui::PushID(row->id);
@@ -102,7 +111,12 @@ void retro_ui_row_begin(const RetroUiRow* row)
         {
             retro_ui_item_tooltip(row->help);
         }
-        if (row->label_width > 0.0f)
+        if (stack_rows())
+        {
+            // An upright page: the control goes under its label and takes
+            // the width (the next line starts at the window's left).
+        }
+        else if (row->label_width > 0.0f)
         {
             ImGui::SameLine(start + row->label_width);
         }
@@ -986,6 +1000,10 @@ constexpr int32_t DISABLED_DEPTH_MAX = 16;
 static bool g_disabled[DISABLED_DEPTH_MAX] = {};
 static int32_t g_disabled_depth = 0;
 
+// Page mode's header height in retro pixels (piccoletto's title bar: a 24
+// pixel icon square).
+constexpr float PAGE_HEADER = 24.0f;
+
 bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* closed)
 {
     if (closed != nullptr)
@@ -1029,6 +1047,21 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
     {
         ImGui::SetNextWindowPos(ImVec2(window->x, window->y), ImGuiCond_FirstUseEver);
     }
+    // Page mode: the whole screen, whatever size the window asked for; its
+    // title bar as tall as piccoletto's header (PAGE_HEADER retro pixels).
+    bool page = retro_ui_page_mode();
+    float header_padding = 0.0f;
+    if (page)
+    {
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
+        flags &= ~ImGuiWindowFlags_AlwaysAutoResize;
+        flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+        header_padding = std::floor((PAGE_HEADER * static_cast<float>(scale) - ImGui::GetFontSize()) * 0.5f);
+        header_padding = header_padding > 0.0f ? header_padding : 0.0f;
+        // (ImGui sizes the title bar from FramePadding when the window begins.)
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, header_padding));
+    }
     if (window->focus)
     {
         ImGui::SetNextWindowFocus();
@@ -1036,6 +1069,10 @@ bool retro_ui_window_begin(const RetroUiWindow* window, int32_t scale, bool* clo
     char title[300] = {};
     std::snprintf(title, sizeof(title), "%s###%s", window->title != nullptr ? window->title : "", window->id);
     bool visible = ImGui::Begin(title, nullptr, flags);
+    if (page)
+    {
+        ImGui::PopStyleVar();
+    }
     if (visible)
     {
         retro_ui_begin_window(scale);

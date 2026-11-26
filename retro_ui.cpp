@@ -61,6 +61,9 @@ static const RetroUiPalette THEMES[] = {
 
 static RetroUiPalette g_palette = THEMES[0];
 
+// Page mode (retro_ui_set_page_mode): windows fill the screen, rows stack.
+static bool g_page_mode = false;
+
 const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme)
 {
     uint32_t index = static_cast<uint32_t>(theme);
@@ -271,6 +274,16 @@ int32_t retro_ui_scale_for_window(float window_width, float window_height)
     int32_t across = static_cast<int32_t>(short_side / 360.0f);
     int32_t scale = along < across ? along : across;
     return scale < 1 ? 1 : scale;
+}
+
+void retro_ui_set_page_mode(bool on)
+{
+    g_page_mode = on;
+}
+
+bool retro_ui_page_mode()
+{
+    return g_page_mode;
 }
 
 void retro_ui_center_windows(void)
@@ -717,11 +730,33 @@ void retro_ui_pop_theme()
 // The title bar as a gradient (title_top -> title_bottom), with the title
 // text drawn again on it (shadowed with the palette's shadows): ImGui's own
 // title bar is one flat color.
+// Page mode's header, where the title bar is: the screen's background, a
+// square at the left for the back arrow (retro_ui_close_button draws it),
+// then the title, as piccoletto's pages.
+static void draw_page_header(ImGuiWindow* window)
+{
+    ImRect title = window->TitleBarRect();
+    ImDrawList* draw_list = window->DrawList;
+    draw_list->PushClipRect(title.Min, title.Max, false);
+    draw_list->AddRectFilled(title.Min, title.Max, retro_ui_color_imgui(g_palette.background));
+    float side = title.GetHeight();
+    const char* end = ImGui::FindRenderedTextEnd(window->Name);
+    ImVec2 text = ImGui::CalcTextSize(window->Name, end);
+    ImVec2 position(title.Min.x + side, title.Min.y + std::floor((side - text.y) * 0.5f));
+    draw_list->AddText(position, retro_ui_color_imgui(g_palette.text_highlight), window->Name, end);
+    draw_list->PopClipRect();
+}
+
 static void draw_title_bar()
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->Flags & ImGuiWindowFlags_NoTitleBar)
     {
+        return;
+    }
+    if (g_page_mode)
+    {
+        draw_page_header(window);
         return;
     }
     ImRect title = window->TitleBarRect();
@@ -741,6 +776,10 @@ void retro_ui_begin_window(int32_t scale)
 {
     use_nearest_sampler();
     draw_title_bar();
+    if (g_page_mode)
+    {
+        return;   // a page: the screen's edges are its edges, nothing drops a shadow
+    }
     draw_window_shadow(static_cast<float>(scale));
     draw_bevel(ImGui::GetWindowPos(), ImGui::GetWindowSize(), static_cast<float>(scale), g_palette.panel_light, g_palette.panel_light, true);
 }
@@ -751,6 +790,13 @@ bool retro_ui_close_button()
     ImRect title = window->TitleBarRect();
     float side = title.GetHeight();
     ImRect box(ImVec2(title.Max.x - side, title.Min.y), title.Max);
+    // A page's way out is the back arrow at its header's left.
+    const char* glyph = "X";
+    if (g_page_mode)
+    {
+        box = ImRect(title.Min, ImVec2(title.Min.x + side, title.Max.y));
+        glyph = PIXEL_FONT_UTF8_ARROW_LEFT;
+    }
     ImGuiID id = window->GetID("#retro_close");
 
     // The title bar is outside the content's clip rect: open it up while we
@@ -766,10 +812,10 @@ bool retro_ui_close_button()
         {
             window->DrawList->AddRectFilled(box.Min, box.Max, retro_ui_color_imgui(g_palette.highlight));
         }
-        ImVec2 text = ImGui::CalcTextSize("X");
+        ImVec2 text = ImGui::CalcTextSize(glyph);
         ImVec2 position(box.Min.x + static_cast<float>(static_cast<int32_t>((side - text.x) * 0.5f)),
                         box.Min.y + static_cast<float>(static_cast<int32_t>((side - text.y) * 0.5f)));
-        window->DrawList->AddText(position, retro_ui_color_imgui(hovered ? g_palette.text_highlight : g_palette.text), "X");
+        window->DrawList->AddText(position, retro_ui_color_imgui(hovered ? g_palette.text_highlight : g_palette.text), glyph);
     }
     ImGui::PopClipRect();
     return pressed;
