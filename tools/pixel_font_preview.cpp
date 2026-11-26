@@ -156,15 +156,23 @@ static bool write_png(const char* path, const uint32_t* pixels, int32_t width, i
 // ---------------------------------------------------------------------------
 
 // No two characters may look the same (e.g. 0 and O): that's unreadable in a UI.
+// Nor like the box drawn for a missing one (□ would hide them).
 static bool check_glyphs_distinct()
 {
     uint32_t count = pixel_font_glyph_count();
     bool ok = true;
+    uint8_t missing[PIXEL_FONT_CELL_HEIGHT] = {};
+    pixel_font_glyph_rows(0xFFFD, missing);
     for (uint32_t i = 0; i < count; i++)
     {
         uint32_t first = pixel_font_glyph_codepoint(i);
         uint8_t a[PIXEL_FONT_CELL_HEIGHT] = {};
         pixel_font_glyph_rows(first, a);
+        if (std::memcmp(a, missing, sizeof(a)) == 0)
+        {
+            std::printf("FAIL glyph U+%04X looks like the missing box\n", first);
+            ok = false;
+        }
         for (uint32_t j = i + 1; j < count; j++)
         {
             uint32_t second = pixel_font_glyph_codepoint(j);
@@ -186,6 +194,7 @@ static bool check_lookups()
     static const uint32_t MUST_EXIST[] = {
         'a', 'z', 0x00E1, 0x00F1, 0x00FC, 0x00E7, 0x00E3, 0x00F5, 0x00DF, 0x00BF, 0x00A1, 0x00FF, 0x0153,
         0x0161, 0x017E, 0x20AC, 0x00A0, 0x2019, PIXEL_FONT_ARROW_DOWN, PIXEL_FONT_CHECK,
+        PIXEL_FONT_PS_CROSS, PIXEL_FONT_PS_CIRCLE, PIXEL_FONT_PS_SQUARE, PIXEL_FONT_PS_TRIANGLE,
     };
     bool ok = true;
     for (size_t i = 0; i < sizeof(MUST_EXIST) / sizeof(MUST_EXIST[0]); i++)

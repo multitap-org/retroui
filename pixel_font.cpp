@@ -127,6 +127,11 @@ static const GlyphPicture GLYPHS[] = {
     { PIXEL_FONT_MENU,        { "#####", ".....", "#####", ".....", "#####" } },
     // An arc from the bottom left over the top, its head pointing down on the right.
     { PIXEL_FONT_ROTATE,      { ".###.", "#...#", "#.###", "#..#.", ".#..." } },
+    // PlayStation's buttons ✕ ○ □ △: cross and circle bold (thin they would be X and O).
+    { PIXEL_FONT_PS_CROSS,    { "##.##", ".###.", "..#..", ".###.", "##.##" } },
+    { PIXEL_FONT_PS_CIRCLE,   { ".###.", "##.##", "#...#", "##.##", ".###." } },
+    { PIXEL_FONT_PS_SQUARE,   { "#####", "#...#", "#...#", "#...#", "#####" } },
+    { PIXEL_FONT_PS_TRIANGLE, { "..#..", ".#.#.", ".#.#.", "#...#", "#####" } },
     // The hold spinner: a ring filling clockwise from the top, one pixel a frame, until it is almost
     // the O (the full ring would be the O itself: no two glyphs may look the same).
     { PIXEL_FONT_SPINNER_FIRST + 0, { "..#..", ".....", ".....", ".....", "....." } },
@@ -204,8 +209,8 @@ static const Alias ALIASES[] = {
 
 constexpr uint32_t ALIAS_COUNT = sizeof(ALIASES) / sizeof(ALIASES[0]);
 
-// Drawn for characters without a glyph.
-static const char* const MISSING_ROWS[PIXEL_FONT_GLYPH_HEIGHT] = { "#####", "#...#", "#...#", "#...#", "#####" };
+// Drawn for characters without a glyph: a box crossed out (the plain box is □).
+static const char* const MISSING_ROWS[PIXEL_FONT_GLYPH_HEIGHT] = { "#####", "##.##", "#.#.#", "##.##", "#####" };
 
 // ---------------------------------------------------------------------------
 // Lookup table built from the pictures

@@ -14,7 +14,7 @@
 // points (text is UTF-8): ASCII, Latin-1 (accented letters for Western
 // European languages, ¡ ¿ « » € ...), a few from Latin Extended-A (Œ Š Ž Ÿ)
 // and the UI symbols below. Lowercase letters draw as capitals. Characters
-// without a glyph draw as a hollow box, so missing ones are obvious.
+// without a glyph draw as a crossed-out box, so missing ones are obvious.
 
 #include <cstdint>
 
@@ -33,6 +33,12 @@ constexpr uint32_t PIXEL_FONT_ARROW_RIGHT = 0x25B6;   // BLACK RIGHT-POINTING TR
 constexpr uint32_t PIXEL_FONT_CHECK       = 0x2714;   // HEAVY CHECK MARK
 constexpr uint32_t PIXEL_FONT_MENU        = 0x2630;   // TRIGRAM FOR HEAVEN (the "hamburger" menu)
 constexpr uint32_t PIXEL_FONT_ROTATE      = 0x21BB;   // CLOCKWISE OPEN CIRCLE ARROW (rotate the screen)
+// PlayStation's face buttons. Cross and circle are drawn bold: thin, they
+// would be the letters X and O.
+constexpr uint32_t PIXEL_FONT_PS_CROSS    = 0x2715;   // MULTIPLICATION X
+constexpr uint32_t PIXEL_FONT_PS_CIRCLE   = 0x25CB;   // WHITE CIRCLE
+constexpr uint32_t PIXEL_FONT_PS_SQUARE   = 0x25A1;   // WHITE SQUARE
+constexpr uint32_t PIXEL_FONT_PS_TRIANGLE = 0x25B3;   // WHITE UP-POINTING TRIANGLE
 // The hold spinner's frames (Private Use Area): frame N lights N + 1 pixels
 // of a ring, clockwise from the top; the last one is the O but for a pixel.
 constexpr uint32_t PIXEL_FONT_SPINNER_FIRST  = 0xE000;
@@ -40,7 +46,7 @@ constexpr uint32_t PIXEL_FONT_SPINNER_FRAMES = 11;
 
 // One cell row as 5 bits: bit 4 = leftmost pixel, bit 0 = rightmost. Row 0 is
 // the top of the cell (accents), rows 2..6 the letter, row 7 below it.
-// Returns false if `codepoint` has no glyph (the hollow box is returned then).
+// Returns false if `codepoint` has no glyph (the crossed-out box is returned then).
 // Call pixel_font_init() once first.
 bool pixel_font_glyph_rows(uint32_t codepoint, uint8_t rows[PIXEL_FONT_CELL_HEIGHT]);
 
