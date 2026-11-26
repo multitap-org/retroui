@@ -244,6 +244,14 @@ bool touch_ui_button(const TouchUi* ui, const char* id, float x, float y, float 
     {
         touch_ui_rect(ui, x, face_top, width, face_height, face);
     }
+    if (style == TouchButton::normal)
+    {
+        // An edge one retro pixel thick (the mockups' buttons): in BLUE and
+        // PURPLE a button's face is the screen's background, so without it
+        // a button on the screen is only its label (Andrés, LOAD GAME).
+        float edge_height = lip && !pressed ? height : face_height;
+        touch_ui_outline(ui, x, face_top, width, edge_height, 1.0f, palette->panel_light);
+    }
 
     if (label != nullptr && label[0] != '\0')
     {
