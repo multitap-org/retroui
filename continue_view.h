@@ -15,9 +15,14 @@
 //   | +----------------------+  A / ENTER: RESUME · OTHER GAMES ... |
 //   +--------------------------------------------------------------+
 //
-//   card (the phone's HOME): full width, the picture across the top edge to
-//   edge (any size, not whole pixels), then the name, the core, the system
-//   (its own line), when, the line, the buttons.
+//   card (the phone's HOME upright): full width, the picture across the top
+//   edge to edge (any size, not whole pixels; never taller than the card is
+//   wide), then the name, the core, when, the
+//   line, the buttons.
+//
+//   cover (the phone's HOME on its side, Andrés's layout C): the picture is
+//   the card, as tall as the room, with a dark band over its bottom: the
+//   name (two lines at most), the core, when, the line, the buttons.
 //
 // The picture is drawn bilinear at the recorded aspect: the frontend hands
 // a texture already scaled up by a whole number with nearest (sharp
@@ -47,10 +52,8 @@ constexpr float CONTINUE_VIEW_INFO_WIDTH = 150.0f;
 struct ContinueViewCard
 {
     const char* game   = "";    // the game's name
-    const char* core   = "";    // "SNES9X"
-    const char* system = "";    // "SUPER NINTENDO" ("": unknown); the panel
-                                // shows "SNES9X · SUPER NINTENDO", the phone
-                                // puts it on the next line
+    const char* core   = "";    // "SNES9X" (no system: a core for several
+                                // can't tell which one the game was for)
     const char* when   = "";    // "PLAYED TODAY AT 21:40"
     const char* reason = "";    // why it says START ("": nothing)
     const char* hint   = "";    // the panel's last line ("": none; the phone shows none)
@@ -71,8 +74,8 @@ struct ContinueViewCard
     bool active = true;
 
     // The phone's card: its picture no taller than this (retro pixels; 0:
-    // as tall as the card's width makes it), so a card fits a phone on its
-    // side.
+    // as tall as the card's width makes it, at most square), so the card
+    // leaves room for the list.
     float picture_max_height = 0.0f;
 };
 
@@ -98,6 +101,17 @@ ContinueViewButton continue_view_draw_card(const TouchUi* ui, const ContinueView
 // The card's height at `width` without drawing it (retro pixels of `ui`).
 float continue_view_card_height(const TouchUi* ui, const ContinueViewCard* card, float width);
 // Its picture's size there (retro pixels, fractional): the card's width at
-// the aspect, unless picture_max_height cuts it. The frontend scales for it.
+// the aspect, no taller than that width nor picture_max_height. The frontend
+// scales for it.
 void continue_view_card_picture_size(const ContinueViewCard* card, float width, float* picture_width,
                                      float* picture_height);
+
+// The phone on its side: the picture as big as fits in `max_width` x
+// `max_height` at its aspect (retro pixels, fractional). The frontend scales
+// for it.
+void continue_view_cover_picture_size(const ContinueViewCard* card, float max_width, float max_height,
+                                      float* picture_width, float* picture_height);
+// Draws it at (x, y) with the band over its bottom; its width goes to
+// `width`. Returns the button tapped.
+ContinueViewButton continue_view_draw_cover(const TouchUi* ui, const ContinueViewCard* card, float x, float y,
+                                            float max_width, float max_height, float* width);
