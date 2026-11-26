@@ -56,6 +56,8 @@ enum class DvrViewAction : uint8_t
     watch,         // Y: play the recording / pause it
     back_to_now,   // A: back to the present
     other_lane,    // UP / DOWN: to the other lane
+    jump_back,     // L: 5 s back (SCRUB); the phone's -5 S / ◀◀ (SNAPSHOTS: the oldest)
+    jump_forward,  // R: 5 s on; the phone's +5 S / ▶▶ (SNAPSHOTS: the newest)
 };
 
 struct DvrViewHint
@@ -74,6 +76,13 @@ struct DvrViewText
     const char* readout = "";   // where the cursor is: "-0:27.8"
     const char* exit    = "";   // the exit button: "BACK TO NOW"
     const char* lane    = "";   // which lane, after the mode ("KEPT LANE"; "" = not shown)
+    // The phone's panel (dvr_view_draw_phone) names its own buttons:
+    const char* play_here     = "";   // PLAY FROM HERE
+    const char* watch         = "";   // WATCH, or PAUSE while it plays
+    const char* jump_back     = "";   // "-5 S" (SCRUB) / "◀◀" (SNAPSHOTS)
+    const char* jump_forward  = "";   // "+5 S" / "▶▶"
+    const char* lane_recorded = "";   // the lanes' tabs: RECORDED
+    const char* lane_kept     = "";   //                  KEPT
 };
 
 struct DvrView
@@ -107,6 +116,12 @@ struct DvrViewInput
 {
     DvrViewAction action  = DvrViewAction::none;
     int32_t       clicked = -1;   // a thumbnail clicked (go there)
+    // The phone's strip, dragged (Andrés, 2026-11-26): while a finger holds
+    // it, how far it is from where it went down and how far it moved this
+    // frame, in thumbnails (positive: the finger went right, toward older).
+    bool          dragging   = false;
+    float         drag_from  = 0.0f;
+    float         drag_moved = 0.0f;
 };
 
 // Window pixels the strip takes at the bottom.
@@ -115,3 +130,32 @@ float dvr_view_height(const DvrView* view, int32_t scale);
 // The strip, above every window (it is one: the DVR's GUI).
 void dvr_view_draw(const DvrView* view, RetroUiFont* pixel_font, int32_t scale, const DvrViewText* text,
                    DvrViewInput* input);
+
+// ---------------------------------------------------------------------------
+// The phone (piccolo's phone UI; Andrés, 2026-11-26, mockup
+// https://claude.ai/artifact/1bqKXHsjJcgiDSmSxey9K3): the same view at touch
+// size, in touch_ui's look. Upright the game keeps its place at the top and
+// the panel takes the room under it (where the on-screen pad was); sideways
+// the game shrinks to the left with the strip under it and the buttons go
+// in a column at the right. Five big pictures (the selected one bigger),
+// dragged to move; a row of steps (-5 S, ◀, WATCH, ▶, +5 S); PLAY FROM HERE
+// and BACK TO NOW across; RECORDED / KEPT tabs once there is a kept lane.
+// Retro pixels at the touch scale (touch_ui_scale_for).
+
+struct DvrPhoneAreas
+{
+    bool  upright = false;
+    float game_x = 0.0f;     // the game's room (the frontend fits the picture in it)
+    float game_y = 0.0f;
+    float game_width = 0.0f;
+    float game_height = 0.0f;
+};
+
+// Where the game goes on a `width` x `height` screen (retro pixels) for a
+// picture `game_aspect` wide per unit of height, the panel taking the rest.
+void dvr_view_phone_areas(const DvrView* view, float width, float height, float game_aspect, DvrPhoneAreas* areas);
+
+// The panel and the strip, in an overlay window (they take the taps). Its
+// areas from dvr_view_phone_areas with the same screen.
+void dvr_view_draw_phone(const DvrView* view, RetroUiFont* pixel_font, int32_t scale, const DvrViewText* text,
+                         const DvrPhoneAreas* areas, DvrViewInput* input);

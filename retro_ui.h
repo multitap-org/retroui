@@ -102,6 +102,23 @@ int32_t retro_ui_scale_for_window(float window_width, float window_height);
 // (menu bar, slide-outs) are placed again by their own code anyway.
 void retro_ui_center_windows(void);
 
+// Page mode (a phone, piccolo's PICCOLO_MOBILE or --mobile): every window
+// drawn with retro_ui_window_begin fills the whole screen, like piccoletto's
+// pages. Its title bar becomes a header: a back arrow at the left (what the
+// X does: the window closes) and the title after it; no edge, no shadow,
+// not movable. Upright, rows (retro_ui_row_begin) put their label above the
+// control instead of in a column beside it, so the controls get the whole
+// width; sideways they keep the desktop's label column.
+// The windows' own code doesn't change: the same widgets, laid out for a
+// touch screen. Off by default; set before the frame's first window. (One
+// switch for the whole UI, kept here like the palette: ImGui's widgets
+// carry no context of ours.)
+void retro_ui_set_page_mode(bool on);
+bool retro_ui_page_mode();
+// Page mode on a screen taller than wide: panes that sit side by side on the
+// desktop go one above the other (rows already stack by themselves).
+bool retro_ui_page_upright();
+
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item
 // whose id is RETRO_UI_MENU_SEPARATOR is a line between items; one not

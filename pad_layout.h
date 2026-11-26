@@ -128,6 +128,16 @@ uint32_t pad_dpad_directions(float dx, float dy);
 constexpr float PAD_PAIR_REACH = 0.62f;
 bool pad_pair_zone(float x, float y, float a_x, float a_y, float b_x, float b_y);
 
+// The face buttons take a finger in an invisible zone bigger than the block
+// they draw (Andrés, 2026-11-25: "oversized zones so you can press B+A"):
+// PAD_FACE_REACH x the block's shorter side more on every side. Neighbours'
+// zones overlap, so a thumb between two presses both (any style: SNES' B+A
+// too); the diamond's middle stays out of all four.
+constexpr float PAD_FACE_REACH = 0.25f;
+// A face button's touch zone from its block (retro pixels, top left and size).
+void pad_face_zone(float x, float y, float width, float height, float* zone_x, float* zone_y, float* zone_width,
+                   float* zone_height);
+
 constexpr float PAD_SCALE_MIN = 0.5f;
 constexpr float PAD_SCALE_MAX = 2.0f;
 constexpr float PAD_ALPHA_MIN = 0.1f;
