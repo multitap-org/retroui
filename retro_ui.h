@@ -115,6 +115,9 @@ void retro_ui_center_windows(void);
 // carry no context of ours.)
 void retro_ui_set_page_mode(bool on);
 bool retro_ui_page_mode();
+// Page mode on a screen taller than wide: panes that sit side by side on the
+// desktop go one above the other (rows already stack by themselves).
+bool retro_ui_page_upright();
 
 // A menu on the bar: its title and its items. Picking an item makes the bar
 // return that item's id (the frontend's own action numbers, >= 0); an item

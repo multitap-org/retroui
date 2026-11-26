@@ -55,15 +55,6 @@ void retro_ui_next_width(float width)
     g_next_width = width;
 }
 
-// Page mode upright (a phone held up): a label column would leave the
-// controls too little width, so labels go above them. Sideways the screen is
-// wide enough for the desktop's row.
-static bool stack_rows()
-{
-    const ImGuiIO& io = ImGui::GetIO();
-    return retro_ui_page_mode() && io.DisplaySize.y > io.DisplaySize.x;
-}
-
 void retro_ui_row_begin(const RetroUiRow* row)
 {
     ImGui::PushID(row->id);
@@ -111,10 +102,11 @@ void retro_ui_row_begin(const RetroUiRow* row)
         {
             retro_ui_item_tooltip(row->help);
         }
-        if (stack_rows())
+        if (retro_ui_page_upright())
         {
-            // An upright page: the control goes under its label and takes
-            // the width (the next line starts at the window's left).
+            // An upright page (a phone held up): a label column would leave
+            // the control too little width, so it goes under its label and
+            // takes the width (the next line starts at the window's left).
         }
         else if (row->label_width > 0.0f)
         {

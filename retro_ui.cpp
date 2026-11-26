@@ -286,6 +286,12 @@ bool retro_ui_page_mode()
     return g_page_mode;
 }
 
+bool retro_ui_page_upright()
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    return g_page_mode && io.DisplaySize.y > io.DisplaySize.x;
+}
+
 void retro_ui_center_windows(void)
 {
     const ImGuiContext* context = ImGui::GetCurrentContext();
