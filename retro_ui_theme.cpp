@@ -1,6 +1,7 @@
 #include "retro_ui_theme.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include <SDL3/SDL_log.h>
@@ -52,10 +53,14 @@ constexpr uint32_t COLOR_COUNT = static_cast<uint32_t>(sizeof(COLOR_KEYS) / size
 static const char* const FLAG_KEYS[] = {"ui_menu_boxes", "ui_shadows", "ui_theme_cursor"};
 constexpr uint32_t FLAG_COUNT = static_cast<uint32_t>(sizeof(FLAG_KEYS) / sizeof(FLAG_KEYS[0]));
 
-// Every uint32_t in RetroUiPalette is a color and every bool a switch; each
-// bool sits between colors, so it takes a uint32_t's room. A new field
-// breaks this at compile time: it needs a key above and a case below.
-static_assert(sizeof(RetroUiPalette) == (COLOR_COUNT + FLAG_COUNT) * sizeof(uint32_t),
+static const char* const LEVEL_KEYS[] = {"ui_background_transparency"};
+constexpr uint32_t LEVEL_COUNT = static_cast<uint32_t>(sizeof(LEVEL_KEYS) / sizeof(LEVEL_KEYS[0]));
+constexpr uint32_t LEVEL_MAX = 100;
+
+// Every uint32_t in RetroUiPalette is a color or a level and every bool a
+// switch; each bool sits between colors, so it takes a uint32_t's room. A
+// new field breaks this at compile time: it needs a key above and a case below.
+static_assert(sizeof(RetroUiPalette) == (COLOR_COUNT + FLAG_COUNT + LEVEL_COUNT) * sizeof(uint32_t),
               "RetroUiPalette changed: update retro_ui_theme.cpp");
 
 const char* retro_ui_theme_key(RetroUiTheme theme)
@@ -197,8 +202,37 @@ bool retro_ui_palette_flag_value(const RetroUiPalette* palette, uint32_t index)
     return *retro_ui_palette_flag(&copy, index);
 }
 
+uint32_t retro_ui_palette_level_count()
+{
+    return LEVEL_COUNT;
+}
+
+const char* retro_ui_palette_level_key(uint32_t index)
+{
+    return index < LEVEL_COUNT ? LEVEL_KEYS[index] : LEVEL_KEYS[0];
+}
+
+uint32_t* retro_ui_palette_level(RetroUiPalette* palette, uint32_t index)
+{
+    (void)index;   // one level for now
+    return &palette->background_transparency;
+}
+
+uint32_t retro_ui_palette_level_value(const RetroUiPalette* palette, uint32_t index)
+{
+    RetroUiPalette copy = *palette;
+    return *retro_ui_palette_level(&copy, index);
+}
+
 bool retro_ui_palette_equal(const RetroUiPalette* a, const RetroUiPalette* b)
 {
+    for (uint32_t i = 0; i < LEVEL_COUNT; i++)
+    {
+        if (retro_ui_palette_level_value(a, i) != retro_ui_palette_level_value(b, i))
+        {
+            return false;
+        }
+    }
     for (uint32_t i = 0; i < FLAG_COUNT; i++)
     {
         if (retro_ui_palette_flag_value(a, i) != retro_ui_palette_flag_value(b, i))
@@ -249,6 +283,22 @@ void retro_ui_palette_read(RetroUiPalette* palette, const SettingsFile* file, co
         }
         *retro_ui_palette_color(palette, i) = color | 0xFF000000u;
     }
+    for (uint32_t i = 0; i < LEVEL_COUNT; i++)
+    {
+        const char* value = settings_file_get(file, "", LEVEL_KEYS[i]);
+        if (value == nullptr)
+        {
+            continue;
+        }
+        char* end = nullptr;
+        long number = std::strtol(value, &end, 10);
+        if (end == value || *end != '\0' || number < 0 || number > static_cast<long>(LEVEL_MAX))
+        {
+            SDL_Log("Theme %s: %s = %s is not a number from 0 to %u", source, LEVEL_KEYS[i], value, LEVEL_MAX);
+            continue;
+        }
+        *retro_ui_palette_level(palette, i) = static_cast<uint32_t>(number);
+    }
 }
 
 bool retro_ui_palette_write(const RetroUiPalette* palette, SettingsFile* file)
@@ -263,6 +313,12 @@ bool retro_ui_palette_write(const RetroUiPalette* palette, SettingsFile* file)
         char color[16] = {};
         std::snprintf(color, sizeof(color), "#%06X", static_cast<unsigned>(retro_ui_palette_color_value(palette, i) & 0xFFFFFFu));
         ok = settings_file_set(file, "", COLOR_KEYS[i], color) && ok;
+    }
+    for (uint32_t i = 0; i < LEVEL_COUNT; i++)
+    {
+        char level[16] = {};
+        std::snprintf(level, sizeof(level), "%u", static_cast<unsigned>(retro_ui_palette_level_value(palette, i)));
+        ok = settings_file_set(file, "", LEVEL_KEYS[i], level) && ok;
     }
     return ok;
 }

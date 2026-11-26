@@ -15,7 +15,7 @@ constexpr float RETRO_UI_SCROLLBAR_GAP = 4.0f;
 // The built-in themes (0xAARRGGBB).
 static const RetroUiPalette THEMES[] = {
     // BLUE: piccolo's colors, navy blue, the default; no drop shadows on windows.
-    {0xFF000000u, false,
+    {0xFF34507Cu, false,
      0xFF34507Cu, 0xFF34507Cu, 0xFF5878A8u, 0xFF1A2840u,
      false, 0xFF34507Cu, 0xFF5878A8u, 0xFF5878A8u,
      0xFF2A4068u, 0xFF2A4068u, 0xFF5878A8u, 0xFF101828u,
@@ -23,10 +23,10 @@ static const RetroUiPalette THEMES[] = {
      0xFFE0E6F0u, 0xFFFFFFFFu, 0xFF8090B0u, 0xFF101828u,
      0xFF34507Cu, 0xFF34507Cu,
      0xFFFFFFFFu, 0xFFE0E6F0u,
-     0xFF34507Cu, 0xFF34507Cu, 0xFF34507Cu, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF34507Cu, 0xFF8CB4F0u},
+     0xFF34507Cu, 0xFF34507Cu, 0xFF34507Cu, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF34507Cu, 0xFF8CB4F0u, 40u},
     // PURPLE: atomic purple, a see-through grape like the handheld shells; no
     // drop shadows on windows.
-    {0xFF000000u, false,
+    {0xFF5B2D83u, false,
      0xFF5B2D83u, 0xFF5B2D83u, 0xFF8350B0u, 0xFF2F1644u,
      false, 0xFF5B2D83u, 0xFF8350B0u, 0xFF8350B0u,
      0xFF4B246Eu, 0xFF4B246Eu, 0xFF8350B0u, 0xFF1D0E2Au,
@@ -34,7 +34,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFE9DEF2u, 0xFFFFFFFFu, 0xFF9A7BB5u, 0xFF1D0E2Au,
      0xFF5B2D83u, 0xFF5B2D83u,
      0xFFFFFFFFu, 0xFFE9DEF2u,
-     0xFF5B2D83u, 0xFF5B2D83u, 0xFF5B2D83u, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF5B2D83u, 0xFFC282FAu},
+     0xFF5B2D83u, 0xFF5B2D83u, 0xFF5B2D83u, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF5B2D83u, 0xFFC282FAu, 40u},
     // ZSNES: purple background, a deep blue gradient bar with grey boxes
     // behind the menu titles, grey menus with a magenta highlight, blue
     // windows with black fields, drop shadows everywhere.
@@ -46,7 +46,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFCECFCEu, 0xFFFFFFFFu, 0xFF8C8682u, 0xFF292521u,
      0xFF7C76A6u, 0xFF383C5Fu,
      0xFFB01818u, 0xFF9C9C68u,
-     0xFF7C76A6u, 0xFFA29EC8u, 0xFF262840u, 0xFFCECFCEu, 0xFF00E000u, true, 0xFFF56F37u, 0xFF383C5Fu, 0xFFF64D25u},
+     0xFF7C76A6u, 0xFFA29EC8u, 0xFF262840u, 0xFFCECFCEu, 0xFF00E000u, true, 0xFFF56F37u, 0xFF383C5Fu, 0xFFF64D25u, 40u},
     // BLACK: flat and dark, never a shadow; the menus are the bar's color.
     {0xFF000000u, false,
      0xFF1E222Au, 0xFF1E222Au, 0xFF1E222Au, 0xFF1E222Au,
@@ -56,7 +56,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFE6E9EFu, 0xFFFFFFFFu, 0xFF7D8494u, 0xFF0F1115u,
      0xFF1E222Au, 0xFF1E222Au,
      0xFFFFFFFFu, 0xFFE6E9EFu,
-     0xFF2E3440u, 0xFF2E3440u, 0xFF2E3440u, 0xFFE6E9EFu, 0xFFE6E9EFu, false, 0xFFB4BAC6u, 0xFF2E3440u, 0xFFB4BAC6u},
+     0xFF2E3440u, 0xFF2E3440u, 0xFF2E3440u, 0xFFE6E9EFu, 0xFFE6E9EFu, false, 0xFFB4BAC6u, 0xFF2E3440u, 0xFFB4BAC6u, 40u},
 };
 
 static RetroUiPalette g_palette = THEMES[0];

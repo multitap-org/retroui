@@ -33,11 +33,17 @@ const char*     retro_ui_palette_flag_key(uint32_t index);
 bool*           retro_ui_palette_flag(RetroUiPalette* palette, uint32_t index);
 bool            retro_ui_palette_flag_value(const RetroUiPalette* palette, uint32_t index);
 
-// Same colors (alpha ignored) and switches.
+// The palette's levels, percent 0..100: "ui_background_transparency".
+uint32_t        retro_ui_palette_level_count();
+const char*     retro_ui_palette_level_key(uint32_t index);
+uint32_t*       retro_ui_palette_level(RetroUiPalette* palette, uint32_t index);
+uint32_t        retro_ui_palette_level_value(const RetroUiPalette* palette, uint32_t index);
+
+// Same colors (alpha ignored), switches and levels.
 bool retro_ui_palette_equal(const RetroUiPalette* a, const RetroUiPalette* b);
 
 // A theme file's palette (its top section): colors as #RRGGBB, switches as
-// true / false. Keys it doesn't have keep `palette`'s values; a bad value
+// true / false, levels as a number 0..100. Keys it doesn't have keep `palette`'s values; a bad value
 // is logged (with `source`, e.g. the file's path) and skipped.
 void retro_ui_palette_read(RetroUiPalette* palette, const SettingsFile* file, const char* source);
 // The palette into a file's top section. False if a value couldn't be set.

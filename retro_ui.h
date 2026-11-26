@@ -55,6 +55,10 @@ struct RetroUiPalette
     uint32_t cursor;           // its color...
     uint32_t button_bottom;    // ...and bottom of buttons (a vertical gradient; the same = flat)
     uint32_t cursor_edge;      // ...and its top / right edge (the same = flat)
+    // How much of the game shows through `background` while the menu or a
+    // window is up over it, in percent (0: the background color covers it,
+    // 100: no background over the game). The frontend draws that layer.
+    uint32_t background_transparency;
 };
 
 enum class RetroUiTheme
