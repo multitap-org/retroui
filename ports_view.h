@@ -12,7 +12,8 @@
 //   BOARD  a sheet from the bottom, 40% of the screen, sliding up (the
 //          frontend dims the game behind it):
 //          a column per port (OUT first, when shown), scrolled sideways when
-//          they don't fit. A click / tap picks a chip, a click on another
+//          they don't fit; with `rows` (a phone held upright) a row per port
+//          instead, scrolled up and down. A click / tap picks a chip, a click on another
 //          column asks to move it there, DONE closes. The frontend does the
 //          moving (its router, or the host).
 //
@@ -56,6 +57,7 @@ struct PortsViewText
     const char* title = "DEVICES";
     const char* done = "DONE";
     const char* help = "";
+    const char* move_here = "MOVE HERE";   // rows: on the ports a picked chip can go to
 };
 
 struct PortsView
@@ -66,6 +68,10 @@ struct PortsView
     PortsViewColumn out;                 // on no port (the board's first column)
     bool            show_out = true;     // the board shows OUT
     float           chip_height = 15.0f; // retro pixels (taller for touch)
+    // A phone held upright (the frontend sets it): the board has a row per
+    // port, under each other, instead of columns side by side (Andrés,
+    // 2026-11-26: five columns don't fit upright); two chips a line.
+    bool            rows = false;
 
     // The tabs (ports_view keeps these).
     uint64_t popped_ms = 0;                        // when they rose for a change (0 = not up)
