@@ -9,7 +9,7 @@
 #include "settings.h"
 #include "settings_file.h"
 
-static const char* const THEME_KEYS[] = {"blue", "purple", "zsnes", "black"};
+static const char* const THEME_KEYS[] = {"blue", "purple", "zsnes", "black", "gray8", "red8", "gray16a", "gray16b"};
 constexpr uint32_t THEME_KEY_COUNT = static_cast<uint32_t>(sizeof(THEME_KEYS) / sizeof(THEME_KEYS[0]));
 static_assert(THEME_KEY_COUNT == static_cast<uint32_t>(RetroUiTheme::count), "a key for every theme");
 
@@ -47,16 +47,39 @@ static const char* const COLOR_KEYS[] = {
     "ui_color_field_text",
     "ui_color_cursor",
     "ui_color_cursor_edge",
-    "ui_color_overlay_fill",
-    "ui_color_overlay_border",
-    "ui_color_overlay_text",
+    "ui_color_pad_background",
+    "ui_color_pad_dpad",
+    "ui_color_pad_dpad_held",
+    "ui_color_pad_dpad_text",
+    "ui_color_pad_a",
+    "ui_color_pad_a_held",
+    "ui_color_pad_a_text",
+    "ui_color_pad_b",
+    "ui_color_pad_b_held",
+    "ui_color_pad_b_text",
+    "ui_color_pad_x",
+    "ui_color_pad_x_held",
+    "ui_color_pad_x_text",
+    "ui_color_pad_y",
+    "ui_color_pad_y_held",
+    "ui_color_pad_y_text",
+    "ui_color_pad_shoulder",
+    "ui_color_pad_shoulder_held",
+    "ui_color_pad_shoulder_text",
+    "ui_color_pad_stick",
+    "ui_color_pad_stick_held",
+    "ui_color_pad_stick_nub",
+    "ui_color_pad_center",
+    "ui_color_pad_center_held",
+    "ui_color_pad_center_text",
+    "ui_color_pad_border",
 };
 constexpr uint32_t COLOR_COUNT = static_cast<uint32_t>(sizeof(COLOR_KEYS) / sizeof(COLOR_KEYS[0]));
 
 static const char* const FLAG_KEYS[] = {"ui_menu_boxes", "ui_shadows", "ui_theme_cursor"};
 constexpr uint32_t FLAG_COUNT = static_cast<uint32_t>(sizeof(FLAG_KEYS) / sizeof(FLAG_KEYS[0]));
 
-static const char* const LEVEL_KEYS[] = {"ui_background_transparency"};
+static const char* const LEVEL_KEYS[] = {"ui_background_transparency", "ui_pad_fill", "ui_pad_border", "ui_pad_labels", "ui_pad_background"};
 constexpr uint32_t LEVEL_COUNT = static_cast<uint32_t>(sizeof(LEVEL_KEYS) / sizeof(LEVEL_KEYS[0]));
 constexpr uint32_t LEVEL_MAX = 100;
 
@@ -166,11 +189,57 @@ uint32_t* retro_ui_palette_color(RetroUiPalette* palette, uint32_t index)
     case 30:
         return &palette->cursor_edge;
     case 31:
-        return &palette->overlay_fill;
+        return &palette->pad_background;
     case 32:
-        return &palette->overlay_border;
+        return &palette->pad_dpad;
     case 33:
-        return &palette->overlay_text;
+        return &palette->pad_dpad_held;
+    case 34:
+        return &palette->pad_dpad_text;
+    case 35:
+        return &palette->pad_a;
+    case 36:
+        return &palette->pad_a_held;
+    case 37:
+        return &palette->pad_a_text;
+    case 38:
+        return &palette->pad_b;
+    case 39:
+        return &palette->pad_b_held;
+    case 40:
+        return &palette->pad_b_text;
+    case 41:
+        return &palette->pad_x;
+    case 42:
+        return &palette->pad_x_held;
+    case 43:
+        return &palette->pad_x_text;
+    case 44:
+        return &palette->pad_y;
+    case 45:
+        return &palette->pad_y_held;
+    case 46:
+        return &palette->pad_y_text;
+    case 47:
+        return &palette->pad_shoulder;
+    case 48:
+        return &palette->pad_shoulder_held;
+    case 49:
+        return &palette->pad_shoulder_text;
+    case 50:
+        return &palette->pad_stick;
+    case 51:
+        return &palette->pad_stick_held;
+    case 52:
+        return &palette->pad_stick_nub;
+    case 53:
+        return &palette->pad_center;
+    case 54:
+        return &palette->pad_center_held;
+    case 55:
+        return &palette->pad_center_text;
+    case 56:
+        return &palette->pad_border;
     default:
         return &palette->text;
     }
@@ -223,8 +292,19 @@ const char* retro_ui_palette_level_key(uint32_t index)
 
 uint32_t* retro_ui_palette_level(RetroUiPalette* palette, uint32_t index)
 {
-    (void)index;   // one level for now
-    return &palette->background_transparency;
+    switch (index)
+    {
+    case 0:
+        return &palette->background_transparency;
+    case 1:
+        return &palette->pad_fill;
+    case 2:
+        return &palette->pad_border_opacity;
+    case 3:
+        return &palette->pad_labels;
+    default:
+        return &palette->pad_background_opacity;
+    }
 }
 
 uint32_t retro_ui_palette_level_value(const RetroUiPalette* palette, uint32_t index)

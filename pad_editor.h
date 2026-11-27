@@ -2,8 +2,8 @@
 
 // EDIT LAYOUT: drag any group of the pad (d-pad, buttons, a stick...) to move
 // it, SIZE - / + resizes the picked group, OPACITY - / + the whole layout
-// (for overlays; with a frontend's PadLook, three sliders instead: FILL,
-// BORDER and LABELS, for every layout), SNAP keeps moves on an 8 dp grid, RESET puts everything
+// (for overlays; with a frontend's PadLook, four sliders instead: FILL,
+// BORDER, LABELS and BACKGROUND, for every layout), SNAP keeps moves on an 8 dp grid, RESET puts everything
 // back, DONE leaves (the app saves). The toolbar sits at the top or the
 // bottom, away from the picked group. Two fingers anywhere pinch the
 // picked group's size (dragging stops while they're down).

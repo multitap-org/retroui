@@ -117,6 +117,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         {
             continue;   // (not shown in play either)
         }
+        part.group = pad_layout_color_group(layout, &part);   // (a six-face style's L / R: the face colors)
         pad_part_draw(ui, &part, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height),
                       layout->alpha, false, layout->overlay, 0.0f, 0.0f, editor->look);
     }
@@ -159,7 +160,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
     float picked_height = 0.0f;
     group_box(frame, layout, editor->selected, &picked_x, &picked_y, &picked_width, &picked_height);
     float bar_width = BAR_WIDTH < screen_width - 16.0f ? BAR_WIDTH : screen_width - 16.0f;
-    float rows = editor->look != nullptr ? 5.0f : 3.0f;   // SIZE, OPACITY or FILL / BORDER / LABELS, the buttons
+    float rows = editor->look != nullptr ? 6.0f : 3.0f;   // SIZE, OPACITY or FILL / BORDER / LABELS / BACKGROUND, the buttons
     float bar_height = 2.0f * BAR_PADDING + BAR_TITLE + rows * BAR_ROW + rows * BAR_GAP;
     float bar_x = std::floor((screen_width - bar_width) * 0.5f);
     bool group_on_top = picked_y + picked_height * 0.5f < screen_height * 0.5f;
@@ -184,7 +185,7 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
 
     if (editor->look != nullptr)
     {
-        // FILL / BORDER / LABELS: the look's opacities, every layout's.
+        // FILL / BORDER / LABELS / BACKGROUND: the look's opacities, every layout's.
         struct Row
         {
             const char* id;
@@ -193,8 +194,9 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         };
         Row looks[] = {{"##fill", "FILL", &editor->look->fill},
                        {"##border", "BORDER", &editor->look->border},
-                       {"##labels", "LABELS", &editor->look->labels}};
-        constexpr float NAME_WIDTH = 56.0f;
+                       {"##labels", "LABELS", &editor->look->labels},
+                       {"##background", "BACKGROUND", &editor->look->background}};
+        constexpr float NAME_WIDTH = 68.0f;   // (BACKGROUND)
         for (const Row& row : looks)
         {
             touch_ui_text(ui, x, touch_ui_centered_text_y(ui, y, BAR_ROW, TouchText::normal), row.name, palette->text,

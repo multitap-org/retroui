@@ -55,15 +55,48 @@ struct RetroUiPalette
     uint32_t cursor;           // its color...
     uint32_t button_bottom;    // ...and bottom of buttons (a vertical gradient; the same = flat)
     uint32_t cursor_edge;      // ...and its top / right edge (the same = flat)
-    // The touch gamepad (pad_layout): its parts' faces, their outlines (and
-    // a stick's nub) and their labels; how see-through each is, the frontend's (PadLook).
-    uint32_t overlay_fill;
-    uint32_t overlay_border;
-    uint32_t overlay_text;
+    // The touch gamepad (pad_layout), every part kind with its own colors:
+    // face, face while held (*_held) and label (*_text). pad_background is the
+    // empty space around the picture while the pad shows; pad_border outlines
+    // every part; a stick's nub is pad_stick_nub. pad_center is SELECT, START,
+    // the menu button and the action button. How see-through each is: the
+    // levels below, then the frontend's (PadLook).
+    uint32_t pad_background;
+    uint32_t pad_dpad;
+    uint32_t pad_dpad_held;
+    uint32_t pad_dpad_text;
+    uint32_t pad_a;
+    uint32_t pad_a_held;
+    uint32_t pad_a_text;
+    uint32_t pad_b;
+    uint32_t pad_b_held;
+    uint32_t pad_b_text;
+    uint32_t pad_x;
+    uint32_t pad_x_held;
+    uint32_t pad_x_text;
+    uint32_t pad_y;
+    uint32_t pad_y_held;
+    uint32_t pad_y_text;
+    uint32_t pad_shoulder;
+    uint32_t pad_shoulder_held;
+    uint32_t pad_shoulder_text;
+    uint32_t pad_stick;
+    uint32_t pad_stick_held;
+    uint32_t pad_stick_nub;
+    uint32_t pad_center;
+    uint32_t pad_center_held;
+    uint32_t pad_center_text;
+    uint32_t pad_border;
     // How much of the game shows through `background` while the menu or a
     // window is up over it, in percent (0: the background color covers it,
     // 100: no background over the game). The frontend draws that layer.
     uint32_t background_transparency;
+    // The pad's starting opacities in percent, used until the user moves a
+    // slider: faces, outlines, labels and the pad_background layer.
+    uint32_t pad_fill;
+    uint32_t pad_border_opacity;
+    uint32_t pad_labels;
+    uint32_t pad_background_opacity;
 };
 
 enum class RetroUiTheme
@@ -72,6 +105,10 @@ enum class RetroUiTheme
     purple,
     zsnes,
     black,
+    gray8,
+    red8,
+    gray16a,
+    gray16b,
     count,
 };
 

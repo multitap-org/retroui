@@ -8,8 +8,7 @@
 constexpr PadPartKind BUTTON = PadPartKind::button;
 constexpr PadPartKind STICK = PadPartKind::stick;
 constexpr PadPartKind ACTION = PadPartKind::action;   // its label comes from the frontend
-constexpr PadPartKind MENU = PadPartKind::menu;       // the same (piccolo: MAIN MENU)
-constexpr PadPartKind EDIT = PadPartKind::edit;       // the same (piccolo: EDIT LAYOUT)
+constexpr PadPartKind MENU = PadPartKind::menu;       // the same (piccolo: the burger, between SELECT and START)
 constexpr TouchText NORMAL = TouchText::normal;
 constexpr TouchText BIG = TouchText::big;
 constexpr PadGroup LSH = PadGroup::left_shoulders;
@@ -22,7 +21,7 @@ constexpr PadGroup RSTICK = PadGroup::right_stick;
 
 // GAMEPAD, portrait (390 x 844 dp): shoulders on top, the body below with the
 // d-pad and the face buttons, SELECT / START / the piccolo menu, both sticks
-// at the bottom; the action button (piccoletto: HOTKEY) under SELECT / START. (The
+// at the bottom; the action button (HOTKEY) under SELECT / START. (The
 // header line is the screen's, not the layout's.)
 static const PadPart GAMEPAD_PORTRAIT[] = {
     {"##l2", "L2", 16, 92, 160, 40, BUTTON, NORMAL, LSH},
@@ -51,9 +50,10 @@ static const PadPart GAMEPAD_PORTRAIT[] = {
 // over the picture (spread to any screen's shape by pad_layouts_place). The
 // whole RetroPad: the shoulders stacked in the top corners (L2 over L1,
 // Andrés 2026-11-21: less height), the d-pad on the left, the face buttons
-// on the right (all four the same size), the sticks inside, the menu button /
-// SELECT / the action button / START in a row at the bottom (menu and action
-// only when the frontend labels them; piccolo: MENU, QUICK; piccoletto:
+// on the right (all four the same size), the sticks inside, SELECT, the menu
+// button and START in a row at the bottom (Andrés, 2026-11-26: the menu is
+// always between SELECT and START) and the action button after them (menu and
+// action only when the frontend labels them; piccolo: the burger; piccoletto:
 // HOTKEY).
 static const PadPart LANDSCAPE_PAD[] = {
     {"##l2", "L2", 16, 12, 140, 30, BUTTON, NORMAL, LSH},
@@ -71,11 +71,10 @@ static const PadPart LANDSCAPE_PAD[] = {
     {"##b", "B", 680, 252, 64, 64, BUTTON, BIG, FACE},
     {"##lstick", "", 230, 256, 80, 80, STICK, NORMAL, LSTICK},
     {"##rstick", "", 534, 256, 80, 80, STICK, NORMAL, RSTICK},
-    {"##menu", "MENU", 164, 350, 96, 36, MENU, NORMAL, CENTER},
-    {"##select", "SELECT", 268, 350, 84, 36, BUTTON, NORMAL, CENTER},
-    {"##hotkey", "HOTKEY", 360, 350, 124, 36, ACTION, NORMAL, CENTER},
-    {"##start", "START", 492, 350, 84, 36, BUTTON, NORMAL, CENTER},
-    {"##edit", "EDIT", 584, 350, 72, 36, EDIT, NORMAL, CENTER},
+    {"##select", "SELECT", 318, 350, 76, 36, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 402, 350, 40, 36, MENU, BIG, CENTER},
+    {"##start", "START", 450, 350, 76, 36, BUTTON, NORMAL, CENTER},
+    {"##hotkey", "HOTKEY", 534, 350, 124, 36, ACTION, NORMAL, CENTER},
 };
 
 // REMOTE PLAY, portrait, under the picture (390 x 420 dp: the controls of the
@@ -83,9 +82,9 @@ static const PadPart LANDSCAPE_PAD[] = {
 // RetroPad, as sideways (Andrés, 2026-11-21: every element in every
 // orientation for now): L2 / R2 and the sticks too. The face buttons a
 // diamond of four the same size, level with the d-pad and under R1. The menu
-// and action buttons (piccolo: MENU, QUICK) beside SELECT / START, shown
-// only when the frontend labels them: without a keyboard they're the way to
-// piccolo's menus.
+// button between SELECT and START and the action button between the sticks,
+// shown only when the frontend labels them: without a keyboard the menu is
+// the way to piccolo's menus.
 static const PadPart REMOTE_BELOW[] = {
     {"##l2", "L2", 16, 6, 120, 28, BUTTON, NORMAL, LSH},
     {"##l", "L1", 16, 38, 120, 32, BUTTON, NORMAL, LSH},
@@ -100,13 +99,12 @@ static const PadPart REMOTE_BELOW[] = {
     {"##y", "Y", 210, 138, 56, 56, BUTTON, BIG, FACE},
     {"##a", "A", 322, 138, 56, 56, BUTTON, BIG, FACE},
     {"##b", "B", 266, 194, 56, 56, BUTTON, BIG, FACE},
-    {"##menu", "MENU", 8, 262, 88, 32, MENU, NORMAL, CENTER},
-    {"##select", "SELECT", 104, 262, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##start", "START", 196, 262, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##hotkey", "HOTKEY", 294, 262, 88, 32, ACTION, NORMAL, CENTER},
+    {"##select", "SELECT", 95, 262, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 175, 262, 40, 32, MENU, BIG, CENTER},
+    {"##start", "START", 219, 262, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##hotkey", "HOTKEY", 157, 344, 76, 32, ACTION, NORMAL, CENTER},
     {"##lstick", "", 60, 312, 96, 96, STICK, NORMAL, LSTICK},
     {"##rstick", "", 234, 312, 96, 96, STICK, NORMAL, RSTICK},
-    {"##edit", "EDIT", 163, 344, 64, 32, EDIT, NORMAL, CENTER},
 };
 
 // REMOTE PLAY, portrait, over a tall picture (390 x 844 dp): the controls
@@ -128,11 +126,10 @@ static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
     {"##a", "A", 326, 620, 46, 46, BUTTON, BIG, FACE},
     {"##lstick", "", 45, 718, 84, 84, STICK, NORMAL, LSTICK},
     {"##rstick", "", 261, 718, 84, 84, STICK, NORMAL, RSTICK},
-    {"##menu", "MENU", 12, 806, 88, 32, MENU, NORMAL, CENTER},
-    {"##select", "SELECT", 110, 806, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##start", "START", 200, 806, 80, 32, BUTTON, NORMAL, CENTER},
-    {"##hotkey", "HOTKEY", 290, 806, 88, 32, ACTION, NORMAL, CENTER},
-    {"##edit", "EDIT", 155, 744, 80, 32, EDIT, NORMAL, CENTER},
+    {"##select", "SELECT", 95, 806, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 175, 806, 40, 32, MENU, BIG, CENTER},
+    {"##start", "START", 219, 806, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##hotkey", "HOTKEY", 155, 744, 80, 32, ACTION, NORMAL, CENTER},
 };
 
 static void define(PadLayouts* layouts, PadLayoutId id, const char* name, const PadPart* parts, int32_t count, float width,

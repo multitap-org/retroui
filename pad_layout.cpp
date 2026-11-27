@@ -10,6 +10,7 @@
 #include "touch_fingers.h"
 
 // The yellow of a lit part: the same in every theme, as in piccolo's pad picture.
+// (Only without a look; with one the theme gives each kind's held color.)
 constexpr uint32_t PART_LIT      = 0xFFFFDC50u;
 constexpr uint32_t PART_LIT_TEXT = 0xFF000000u;
 
@@ -316,6 +317,78 @@ void pad_text(const TouchUi* ui, const PadFrame* frame, float x, float y, const 
 // even on a see-through pad.
 constexpr float LIT_ALPHA_MIN = 0.6f;
 
+PadGroup pad_layout_color_group(const PadLayout* layout, const PadPart* part)
+{
+    if (six_face_cell(layout, part) >= 0)
+    {
+        return PadGroup::face;
+    }
+    return part->group;
+}
+
+// The theme's colors for a part's kind (see PadLook): its face, the face
+// while held, and its label (for a stick: its nub).
+static void kind_colors(const RetroUiPalette* palette, const PadPart* part, uint32_t* face, uint32_t* face_held, uint32_t* text)
+{
+    if (part->kind == PadPartKind::action || part->kind == PadPartKind::menu || part->group == PadGroup::center)
+    {
+        *face = palette->pad_center;
+        *face_held = palette->pad_center_held;
+        *text = palette->pad_center_text;
+    }
+    else if (part->kind == PadPartKind::stick)
+    {
+        *face = palette->pad_stick;
+        *face_held = palette->pad_stick_held;
+        *text = palette->pad_stick_nub;
+    }
+    else if (part->group == PadGroup::dpad)
+    {
+        *face = palette->pad_dpad;
+        *face_held = palette->pad_dpad_held;
+        *text = palette->pad_dpad_text;
+    }
+    else if (part->group == PadGroup::face)
+    {
+        // By the RetroPad button; any other face part (a six-face style's
+        // C / Z on L / R) takes A's.
+        RetroPadButton button = RetroPadButton::a;
+        if (!retropad_button_for_part(part->id, &button))
+        {
+            button = RetroPadButton::a;
+        }
+        switch (button)
+        {
+            case RetroPadButton::b:
+                *face = palette->pad_b;
+                *face_held = palette->pad_b_held;
+                *text = palette->pad_b_text;
+                break;
+            case RetroPadButton::x:
+                *face = palette->pad_x;
+                *face_held = palette->pad_x_held;
+                *text = palette->pad_x_text;
+                break;
+            case RetroPadButton::y:
+                *face = palette->pad_y;
+                *face_held = palette->pad_y_held;
+                *text = palette->pad_y_text;
+                break;
+            default:
+                *face = palette->pad_a;
+                *face_held = palette->pad_a_held;
+                *text = palette->pad_a_text;
+                break;
+        }
+    }
+    else
+    {
+        *face = palette->pad_shoulder;
+        *face_held = palette->pad_shoulder_held;
+        *text = palette->pad_shoulder_text;
+    }
+}
+
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
                    bool overlay, float stick_x, float stick_y, const PadLook* look)
 {
@@ -323,26 +396,29 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
     uint32_t face = overlay ? palette->button_face : palette->field_face;
     uint32_t text = overlay ? palette->text_highlight : palette->field_text;
     uint32_t nub = overlay ? palette->field_face : palette->button_face;
+    uint32_t lit = PART_LIT;
+    uint32_t lit_text = PART_LIT_TEXT;
     float face_alpha = alpha;
     float nub_alpha = alpha;
     float text_alpha = alpha;
     if (look != nullptr)
     {
-        face = palette->overlay_fill;
-        nub = palette->overlay_border;
-        text = palette->overlay_text;
+        // A stick's third color is its nub, the others' their label.
+        kind_colors(palette, part, &face, &lit, &text);
+        nub = text;
+        lit_text = text;   // held label: its color at full opacity
         face_alpha = held && look->fill < LIT_ALPHA_MIN ? LIT_ALPHA_MIN : look->fill;
-        nub_alpha = look->border;
+        nub_alpha = held ? 1.0f : look->labels;
         text_alpha = held ? 1.0f : look->labels;
     }
-    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? PART_LIT : face, face_alpha));
+    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? lit : face, face_alpha));
     if (look != nullptr && look->border > 0.0f)
     {
-        touch_ui_outline(ui, x, y, width, height, 1.0f, retro_ui_color_with_alpha(palette->overlay_border, look->border));
+        touch_ui_outline(ui, x, y, width, height, 1.0f, retro_ui_color_with_alpha(palette->pad_border, look->border));
     }
     if (part->kind == PadPartKind::stick)
     {
-        // The nub: the body's color, 40% of the block, in the middle at
+        // The nub: its own color (the body's without a look), 40% of the block, in the middle at
         // rest, pushed toward the block's edges as the stick is.
         float nub_width = std::floor(width * 0.4f);
         float nub_height = std::floor(height * 0.4f);
@@ -355,7 +431,7 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
     {
         float text_width = touch_ui_text_width(ui, part->label, part->size);
         touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, part->size),
-                      part->label, retro_ui_color_with_alpha(held ? PART_LIT_TEXT : text, text_alpha), part->size);
+                      part->label, retro_ui_color_with_alpha(held ? lit_text : text, text_alpha), part->size);
     }
 }
 
@@ -614,11 +690,9 @@ static bool lit_part(const TouchUi* ui, const PadPart* part, float* stick_x, flo
 bool pad_layout_shown_part(const PadLayout* layout, int32_t part, PadPart* shown)
 {
     *shown = layout->parts[part];
-    if (shown->kind == PadPartKind::action || shown->kind == PadPartKind::menu || shown->kind == PadPartKind::edit)
+    if (shown->kind == PadPartKind::action || shown->kind == PadPartKind::menu)
     {
-        const char* label = shown->kind == PadPartKind::action ? layout->action_label
-                            : shown->kind == PadPartKind::menu ? layout->menu_label
-                                                               : layout->edit_label;
+        const char* label = shown->kind == PadPartKind::action ? layout->action_label : layout->menu_label;
         if (label == nullptr)
         {
             return false;
@@ -657,13 +731,10 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
     uint32_t held_now = 0;
     bool action_was_held = layout->action_held;
     bool menu_was_held = layout->menu_held;
-    bool edit_was_held = layout->edit_held;
     layout->action_held = false;
     layout->action_pressed = false;
     layout->menu_held = false;
     layout->menu_pressed = false;
-    layout->edit_held = false;
-    layout->edit_pressed = false;
     uint32_t dpad = dpad_held(ui, frame, layout);
     uint32_t pair = pair_held(ui, frame, layout);
     for (int32_t i = 0; i < layout->count && i < PAD_MAX_PARTS; i++)
@@ -722,11 +793,6 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
             layout->menu_held = true;
             layout->menu_pressed = !menu_was_held;
         }
-        if (touched && part->kind == PadPartKind::edit)
-        {
-            layout->edit_held = true;
-            layout->edit_pressed = !edit_was_held;
-        }
         if (touched && is_button && ui->pad != nullptr)
         {
             // What the pad gives: the parts fingers hold (a real gamepad's
@@ -754,7 +820,9 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
                 }
             }
         }
-        pad_part_draw(ui, part, screen_x, screen_y, screen_width, screen_height, layout->alpha, held, layout->overlay, stick_x,
+        PadPart drawn = *part;   // a six-face style's L / R take the face colors
+        drawn.group = pad_layout_color_group(layout, part);
+        pad_part_draw(ui, &drawn, screen_x, screen_y, screen_width, screen_height, layout->alpha, held, layout->overlay, stick_x,
                       stick_y, layout->look);
     }
     layout->held = held_now;
