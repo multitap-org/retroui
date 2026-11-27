@@ -111,15 +111,16 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         float y = 0.0f;
         float width = 0.0f;
         float height = 0.0f;
-        pad_layout_part_rect(layout, i, &x, &y, &width, &height);
         PadPart part;
         if (!pad_layout_shown_part(layout, i, &part))
         {
             continue;   // (not shown in play either)
         }
+        PadSide open = PadSide::none;   // drawn where play draws it
+        pad_layout_part_screen_rect(ui, frame, layout, i, &part, &x, &y, &width, &height, &open);
         part.group = pad_layout_color_group(layout, &part);   // (a six-face style's L / R: the face colors)
-        pad_part_draw(ui, &part, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height),
-                      layout->alpha, false, layout->overlay, 0.0f, 0.0f, editor->look);
+        pad_part_draw_open(ui, &part, x, y, width, height, layout->alpha, false, layout->overlay, 0.0f, 0.0f, editor->look,
+                           open);
     }
     for (int32_t g = 0; g < PAD_GROUP_COUNT; g++)
     {

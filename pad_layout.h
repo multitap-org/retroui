@@ -228,6 +228,29 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
                    bool overlay, float stick_x, float stick_y, const PadLook* look = nullptr);
 
+// A part's side left open (a d-pad arm's, toward the middle square, whose
+// outline it shares): no face and no outline on that line.
+enum class PadSide
+{
+    none,
+    top,
+    bottom,
+    left,
+    right,
+};
+
+// pad_part_draw with a side open (see PadSide).
+void pad_part_draw_open(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha,
+                        bool held, bool overlay, float stick_x, float stick_y, const PadLook* look, PadSide open);
+
+// Where part `index` (as shown: `shown`, its label) is drawn, in retro
+// pixels on whole window pixels: the d-pad's five squares all one size laid
+// out from the middle one (with a look, the arms over the middle's outline:
+// `open`), any other part grown by a pixel so its label sits exactly in its
+// middle. Fingers keep using pad_layout_part_rect's exact rectangle.
+void pad_layout_part_screen_rect(const TouchUi* ui, const PadFrame* frame, const PadLayout* layout, int32_t index,
+                                 const PadPart* shown, float* x, float* y, float* width, float* height, PadSide* open);
+
 // The group that picks a part's colors: its own, except in a six-face style,
 // where the parts on L / R sit in the face buttons' grid and take the face
 // colors. Draw with a copy of the part whose `group` is this one.

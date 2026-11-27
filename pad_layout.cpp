@@ -4,7 +4,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
+#include "pixel_font.h"
 #include "retropad.h"
 #include "settings_file.h"
 #include "touch_fingers.h"
@@ -389,8 +391,143 @@ static void kind_colors(const RetroUiPalette* palette, const PadPart* part, uint
     }
 }
 
+// Retro pixels to whole window pixels and back: everything a part draws
+// lands on the window's pixel grid, so a label or a nub can sit exactly in
+// its middle (Andrés, 2026-11-27: labels were a pixel off at some scales).
+static float window_pixels(const TouchUi* ui, float retro)
+{
+    return std::floor(retro * static_cast<float>(ui->scale) + 0.5f);
+}
+
+static float retro_pixels(const TouchUi* ui, float window)
+{
+    return window / static_cast<float>(ui->scale);
+}
+
+// The font's pixel (window pixels) at `size`: the cell is
+// PIXEL_FONT_CELL_HEIGHT of them.
+static float font_pixel(const TouchUi* ui, TouchText size)
+{
+    return window_pixels(ui, touch_ui_text_height(ui, size)) / static_cast<float>(PIXEL_FONT_CELL_HEIGHT);
+}
+
+// A label's inked width (window pixels): the measured width without the
+// gap after its last letter (each glyph advances PIXEL_FONT_ADVANCE, one
+// more than its width), which would push it half a pixel left of center.
+static float label_width(const TouchUi* ui, const char* label, TouchText size)
+{
+    float measured = window_pixels(ui, touch_ui_text_width(ui, label, size));
+    float gap = static_cast<float>(PIXEL_FONT_ADVANCE - PIXEL_FONT_GLYPH_WIDTH) * font_pixel(ui, size);
+    return measured > gap ? measured - gap : measured;
+}
+
+// `length` (window pixels) grown by one if needed so that `content` fits
+// in its middle exactly: the room left on the two sides is even.
+static float even_room(float length, float content)
+{
+    float room = length - content;
+    return std::fmod(room, 2.0f) != 0.0f ? length + 1.0f : length;
+}
+
+void pad_layout_part_screen_rect(const TouchUi* ui, const PadFrame* frame, const PadLayout* layout, int32_t index,
+                                 const PadPart* shown, float* x, float* y, float* width, float* height, PadSide* open)
+{
+    *open = PadSide::none;
+    float rx = 0.0f;
+    float ry = 0.0f;
+    float rw = 0.0f;
+    float rh = 0.0f;
+    pad_layout_part_rect(layout, index, &rx, &ry, &rw, &rh);
+    // The d-pad: one cell size for all five squares, laid out from the
+    // middle one, so every square is the same size at any scale (rounding
+    // each on its own made them differ by a pixel, and the arrows with them).
+    int32_t middle = -1;
+    for (int32_t i = 0; i < layout->count; i++)
+    {
+        if (std::strcmp(layout->parts[i].id, "##dpad_center") == 0)
+        {
+            middle = i;
+        }
+    }
+    if (layout->parts[index].group == PadGroup::dpad && middle >= 0)
+    {
+        float mx = 0.0f;
+        float my = 0.0f;
+        float mw = 0.0f;
+        float mh = 0.0f;
+        pad_layout_part_rect(layout, middle, &mx, &my, &mw, &mh);
+        float cx = window_pixels(ui, pad_x(frame, mx));
+        float cy = window_pixels(ui, pad_y(frame, my));
+        float cw = window_pixels(ui, pad_size(frame, mw));
+        float ch = window_pixels(ui, pad_size(frame, mh));
+        // Room for an arrow in the middle of each (they're all one glyph wide).
+        TouchText size = layout->parts[index].size;
+        float glyph = static_cast<float>(PIXEL_FONT_GLYPH_WIDTH) * font_pixel(ui, size);
+        cw = even_room(cw, glyph);
+        ch = even_room(ch, static_cast<float>(PIXEL_FONT_GLYPH_HEIGHT) * font_pixel(ui, size));
+        // With a look the arms sit on the middle's edge, one line of the
+        // outline over the other (Andrés, 2026-11-27: two outlines side by
+        // side made the d-pad's lines twice as thick): the side toward the
+        // middle is left open, the middle draws it.
+        float overlap = layout->look != nullptr ? window_pixels(ui, 1.0f) : 0.0f;
+        float left = cx;
+        float top = cy;
+        RetroPadButton button = RetroPadButton::b;
+        if (index != middle && retropad_button_for_part(layout->parts[index].id, &button))
+        {
+            if (button == RetroPadButton::up)
+            {
+                top = cy - ch + overlap;
+                *open = overlap > 0.0f ? PadSide::bottom : PadSide::none;
+            }
+            else if (button == RetroPadButton::down)
+            {
+                top = cy + ch - overlap;
+                *open = overlap > 0.0f ? PadSide::top : PadSide::none;
+            }
+            else if (button == RetroPadButton::left)
+            {
+                left = cx - cw + overlap;
+                *open = overlap > 0.0f ? PadSide::right : PadSide::none;
+            }
+            else if (button == RetroPadButton::right)
+            {
+                left = cx + cw - overlap;
+                *open = overlap > 0.0f ? PadSide::left : PadSide::none;
+            }
+        }
+        *x = retro_pixels(ui, left);
+        *y = retro_pixels(ui, top);
+        *width = retro_pixels(ui, cw);
+        *height = retro_pixels(ui, ch);
+        return;
+    }
+    // Any other part: its edges on the window's pixels, grown by a pixel
+    // where its label (or a stick's nub, centered the same way in
+    // pad_part_draw) wouldn't sit exactly in the middle.
+    float left = window_pixels(ui, pad_x(frame, rx));
+    float top = window_pixels(ui, pad_y(frame, ry));
+    float w = window_pixels(ui, pad_x(frame, rx + rw)) - left;
+    float h = window_pixels(ui, pad_y(frame, ry + rh)) - top;
+    if (shown->label[0] != '\0')
+    {
+        w = even_room(w, label_width(ui, shown->label, shown->size));
+        h = even_room(h, static_cast<float>(PIXEL_FONT_GLYPH_HEIGHT) * font_pixel(ui, shown->size));
+    }
+    *x = retro_pixels(ui, left);
+    *y = retro_pixels(ui, top);
+    *width = retro_pixels(ui, w);
+    *height = retro_pixels(ui, h);
+}
+
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
                    bool overlay, float stick_x, float stick_y, const PadLook* look)
+{
+    pad_part_draw_open(ui, part, x, y, width, height, alpha, held, overlay, stick_x, stick_y, look, PadSide::none);
+}
+
+void pad_part_draw_open(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha,
+                        bool held, bool overlay, float stick_x, float stick_y, const PadLook* look, PadSide open)
 {
     const RetroUiPalette* palette = &ui->palette;
     uint32_t face = overlay ? palette->button_face : palette->field_face;
@@ -411,27 +548,68 @@ void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, flo
         nub_alpha = held ? 1.0f : look->labels;
         text_alpha = held ? 1.0f : look->labels;
     }
-    touch_ui_rect(ui, x, y, width, height, retro_ui_color_with_alpha(held ? lit : face, face_alpha));
+    // An open side (a d-pad arm's, toward the middle): neither face nor
+    // outline on its last line, which is the middle's outline.
+    float line = 1.0f;
+    float fill_x = open == PadSide::right || open == PadSide::left ? x + (open == PadSide::left ? line : 0.0f) : x;
+    float fill_y = open == PadSide::bottom || open == PadSide::top ? y + (open == PadSide::top ? line : 0.0f) : y;
+    float fill_width = open == PadSide::right || open == PadSide::left ? width - line : width;
+    float fill_height = open == PadSide::bottom || open == PadSide::top ? height - line : height;
+    touch_ui_rect(ui, fill_x, fill_y, fill_width, fill_height, retro_ui_color_with_alpha(held ? lit : face, face_alpha));
     if (look != nullptr && look->border > 0.0f)
     {
-        touch_ui_outline(ui, x, y, width, height, 1.0f, retro_ui_color_with_alpha(palette->pad_border, look->border));
+        uint32_t ink = retro_ui_color_with_alpha(palette->pad_border, look->border);
+        if (open != PadSide::top)
+        {
+            touch_ui_rect(ui, x, y, width, line, ink);
+        }
+        if (open != PadSide::bottom)
+        {
+            touch_ui_rect(ui, x, y + height - line, width, line, ink);
+        }
+        // The sides between them, so the corners aren't drawn twice.
+        float side_y = open == PadSide::top ? y : y + line;
+        float side_bottom = open == PadSide::bottom ? y + height : y + height - line;
+        if (open != PadSide::left)
+        {
+            touch_ui_rect(ui, x, side_y, line, side_bottom - side_y, ink);
+        }
+        if (open != PadSide::right)
+        {
+            touch_ui_rect(ui, x + width - line, side_y, line, side_bottom - side_y, ink);
+        }
     }
     if (part->kind == PadPartKind::stick)
     {
         // The nub: its own color (the body's without a look), 40% of the block, in the middle at
         // rest, pushed toward the block's edges as the stick is.
-        float nub_width = std::floor(width * 0.4f);
-        float nub_height = std::floor(height * 0.4f);
-        float travel_x = (width - nub_width) * 0.5f;
-        float travel_y = (height - nub_height) * 0.5f;
-        touch_ui_rect(ui, std::floor(x + travel_x + stick_x * travel_x), std::floor(y + travel_y + stick_y * travel_y), nub_width,
-                      nub_height, retro_ui_color_with_alpha(nub, nub_alpha));
+        // (In window pixels, sized so it sits exactly in the middle at rest.)
+        float block_width = window_pixels(ui, width);
+        float block_height = window_pixels(ui, height);
+        float nub_width = std::floor(block_width * 0.4f);
+        float nub_height = std::floor(block_height * 0.4f);
+        nub_width = std::fmod(block_width - nub_width, 2.0f) != 0.0f ? nub_width + 1.0f : nub_width;
+        nub_height = std::fmod(block_height - nub_height, 2.0f) != 0.0f ? nub_height + 1.0f : nub_height;
+        float travel_x = (block_width - nub_width) * 0.5f;
+        float travel_y = (block_height - nub_height) * 0.5f;
+        float nub_x = window_pixels(ui, x) + std::floor(travel_x + stick_x * travel_x);
+        float nub_y = window_pixels(ui, y) + std::floor(travel_y + stick_y * travel_y);
+        touch_ui_rect(ui, retro_pixels(ui, nub_x), retro_pixels(ui, nub_y), retro_pixels(ui, nub_width),
+                      retro_pixels(ui, nub_height), retro_ui_color_with_alpha(nub, nub_alpha));
     }
     if (part->label[0] != '\0')
     {
-        float text_width = touch_ui_text_width(ui, part->label, part->size);
-        touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, part->size),
-                      part->label, retro_ui_color_with_alpha(held ? lit_text : text, text_alpha), part->size);
+        // In the middle to the window pixel: the label's width, and its
+        // letters' height (the cell has PIXEL_FONT_MARK_ROWS above them for
+        // accents), in the room pad_layout_part_screen_rect left even.
+        float text_width = label_width(ui, part->label, part->size);
+        float pixel = font_pixel(ui, part->size);
+        float letters = static_cast<float>(PIXEL_FONT_GLYPH_HEIGHT) * pixel;
+        float text_x = window_pixels(ui, x) + std::floor((window_pixels(ui, width) - text_width) * 0.5f);
+        float text_y = window_pixels(ui, y) + std::floor((window_pixels(ui, height) - letters) * 0.5f) -
+                       static_cast<float>(PIXEL_FONT_MARK_ROWS) * pixel;
+        touch_ui_text(ui, retro_pixels(ui, text_x), retro_pixels(ui, text_y), part->label,
+                      retro_ui_color_with_alpha(held ? lit_text : text, text_alpha), part->size);
     }
 }
 
@@ -754,6 +932,14 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         float screen_y = pad_y(frame, y);
         float screen_width = pad_size(frame, width);
         float screen_height = pad_size(frame, height);
+        // Where it's drawn: the same place on whole pixels (the fingers keep
+        // the exact rectangle above).
+        float draw_x = 0.0f;
+        float draw_y = 0.0f;
+        float draw_width = 0.0f;
+        float draw_height = 0.0f;
+        PadSide open = PadSide::none;
+        pad_layout_part_screen_rect(ui, frame, layout, i, part, &draw_x, &draw_y, &draw_width, &draw_height, &open);
         // The d-pad's parts are held from its area (dpad_held; its middle
         // presses nothing), the face buttons by a finger in their bigger
         // zone (pad_face_zone), every other part by a finger on it; A and B
@@ -822,8 +1008,8 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         }
         PadPart drawn = *part;   // a six-face style's L / R take the face colors
         drawn.group = pad_layout_color_group(layout, part);
-        pad_part_draw(ui, &drawn, screen_x, screen_y, screen_width, screen_height, layout->alpha, held, layout->overlay, stick_x,
-                      stick_y, layout->look);
+        pad_part_draw_open(ui, &drawn, draw_x, draw_y, draw_width, draw_height, layout->alpha, held, layout->overlay, stick_x,
+                           stick_y, layout->look, open);
     }
     layout->held = held_now;
 }
