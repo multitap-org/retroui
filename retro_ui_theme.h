@@ -13,7 +13,7 @@
 
 struct SettingsFile;
 
-// A built-in theme's key in settings files: "blue", "purple", "zsnes", "black"
+// A built-in theme's key in settings files: "blue", "purple", "zsnes", "black", "gray8", "red8", "gray16a", "gray16b"
 // ("" for RetroUiTheme::count). Names for people stay the frontend's
 // (translated).
 const char* retro_ui_theme_key(RetroUiTheme theme);
@@ -33,7 +33,7 @@ const char*     retro_ui_palette_flag_key(uint32_t index);
 bool*           retro_ui_palette_flag(RetroUiPalette* palette, uint32_t index);
 bool            retro_ui_palette_flag_value(const RetroUiPalette* palette, uint32_t index);
 
-// The palette's levels, percent 0..100: "ui_background_transparency".
+// The palette's levels, percent 0..100: "ui_background_transparency", "ui_pad_fill", "ui_pad_border", "ui_pad_labels", "ui_pad_background".
 uint32_t        retro_ui_palette_level_count();
 const char*     retro_ui_palette_level_key(uint32_t index);
 uint32_t*       retro_ui_palette_level(RetroUiPalette* palette, uint32_t index);

@@ -117,8 +117,9 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
         {
             continue;   // (not shown in play either)
         }
+        part.group = pad_layout_color_group(layout, &part);   // (a six-face style's L / R: the face colors)
         pad_part_draw(ui, &part, pad_x(frame, x), pad_y(frame, y), pad_size(frame, width), pad_size(frame, height),
-                      layout->alpha, false, layout->overlay, 0.0f, 0.0f);
+                      layout->alpha, false, layout->overlay, 0.0f, 0.0f, editor->look);
     }
     for (int32_t g = 0; g < PAD_GROUP_COUNT; g++)
     {
@@ -159,7 +160,8 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
     float picked_height = 0.0f;
     group_box(frame, layout, editor->selected, &picked_x, &picked_y, &picked_width, &picked_height);
     float bar_width = BAR_WIDTH < screen_width - 16.0f ? BAR_WIDTH : screen_width - 16.0f;
-    float bar_height = 2.0f * BAR_PADDING + BAR_TITLE + 3.0f * BAR_ROW + 3.0f * BAR_GAP;
+    float rows = editor->look != nullptr ? 6.0f : 3.0f;   // SIZE, OPACITY or FILL / BORDER / LABELS / BACKGROUND, the buttons
+    float bar_height = 2.0f * BAR_PADDING + BAR_TITLE + rows * BAR_ROW + rows * BAR_GAP;
     float bar_x = std::floor((screen_width - bar_width) * 0.5f);
     bool group_on_top = picked_y + picked_height * 0.5f < screen_height * 0.5f;
     float bar_y = group_on_top ? screen_height - 8.0f - bar_height : 8.0f;
@@ -181,14 +183,43 @@ bool pad_editor_draw(PadEditor* editor, const TouchUi* ui, const PadFrame* frame
     edit->scale = clampf(edit->scale + static_cast<float>(step) * SIZE_STEP, PAD_SCALE_MIN, PAD_SCALE_MAX);
     y += BAR_ROW + BAR_GAP;
 
-    std::snprintf(value, sizeof(value), "%d%%", static_cast<int>(std::lround(layout->alpha * 100.0f)));
-    step = stepper(ui, "##opacity", "OPACITY", value, x, y, inner);
-    if (step != 0)
+    if (editor->look != nullptr)
     {
-        layout->alpha = clampf(layout->alpha + static_cast<float>(step) * OPACITY_STEP, PAD_ALPHA_MIN, 1.0f);
-        layout->alpha_set = true;
+        // FILL / BORDER / LABELS / BACKGROUND: the look's opacities, every layout's.
+        struct Row
+        {
+            const char* id;
+            const char* name;
+            float*      value;
+        };
+        Row looks[] = {{"##fill", "FILL", &editor->look->fill},
+                       {"##border", "BORDER", &editor->look->border},
+                       {"##labels", "LABELS", &editor->look->labels},
+                       {"##background", "BACKGROUND", &editor->look->background}};
+        constexpr float NAME_WIDTH = 68.0f;   // (BACKGROUND)
+        for (const Row& row : looks)
+        {
+            touch_ui_text(ui, x, touch_ui_centered_text_y(ui, y, BAR_ROW, TouchText::normal), row.name, palette->text,
+                          TouchText::normal);
+            std::snprintf(value, sizeof(value), "%d%%", static_cast<int>(std::lround(*row.value * 100.0f)));
+            if (touch_ui_slider(ui, row.id, row.value, value, x + NAME_WIDTH, y, inner - NAME_WIDTH, BAR_ROW))
+            {
+                editor->look_changed = true;
+            }
+            y += BAR_ROW + BAR_GAP;
+        }
     }
-    y += BAR_ROW + BAR_GAP;
+    else
+    {
+        std::snprintf(value, sizeof(value), "%d%%", static_cast<int>(std::lround(layout->alpha * 100.0f)));
+        step = stepper(ui, "##opacity", "OPACITY", value, x, y, inner);
+        if (step != 0)
+        {
+            layout->alpha = clampf(layout->alpha + static_cast<float>(step) * OPACITY_STEP, PAD_ALPHA_MIN, 1.0f);
+            layout->alpha_set = true;
+        }
+        y += BAR_ROW + BAR_GAP;
+    }
 
     float third = (inner - 2.0f * BAR_GAP) / 3.0f;
     bool done = false;

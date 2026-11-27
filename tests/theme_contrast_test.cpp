@@ -20,7 +20,7 @@ static void check_apart(const char* theme, uint32_t element, uint32_t surface, c
 
 int main()
 {
-    const char* names[] = {"BLUE", "PURPLE", "ZSNES", "BLACK"};
+    const char* names[] = {"BLUE", "PURPLE", "ZSNES", "BLACK", "8-BIT GRAY", "8-BIT RED", "16-BIT GRAY A", "16-BIT GRAY B"};
     for (int32_t i = 0; i < static_cast<int32_t>(RetroUiTheme::count); i++)
     {
         const RetroUiPalette* p = retro_ui_theme_palette(static_cast<RetroUiTheme>(i));

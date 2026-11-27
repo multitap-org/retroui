@@ -27,9 +27,24 @@ enum class PadPartKind
 {
     button,   // a block with its label
     stick,    // a block with a nub in the middle
-    action,   // the frontend's own button (piccoletto: HOTKEY, with STREAM access;
-              // piccolo: QUICK MENU), labelled by it; shown only when it gives a label
-    menu,     // a second one of the frontend's (piccolo: MAIN MENU), the same way
+    action,   // the frontend's own button (piccoletto: HOTKEY, with STREAM access),
+              // labelled by it; shown only when it gives a label
+    menu,     // a second one of the frontend's (piccolo: the menu button, a burger),
+              // the same way; sits between SELECT and START
+};
+
+// How see-through the parts are, each piece on its own, 0..1 (Andrés,
+// 2026-11-26): the faces, their outlines, the labels (and a stick's nub), the
+// pad_background layer over the space the picture leaves empty.
+// One for every layout, upright or sideways; its colors are the theme's
+// (RetroUiPalette pad_*, one set per kind of part). Set by the frontend
+// (PadLayout::look); EDIT LAYOUT's sliders change it (PadEditor::look).
+struct PadLook
+{
+    float fill       = 0.2f;
+    float border     = 0.5f;
+    float labels     = 0.7f;
+    float background = 1.0f;   // the frontend draws that layer; the editor's slider sets it
 };
 
 // What moves together in EDIT LAYOUT.
@@ -39,7 +54,7 @@ enum class PadGroup
     right_shoulders,
     dpad,
     face,
-    center,        // SELECT, START, the piccolo menu
+    center,        // SELECT, START, the menu button, the action button
     left_stick,
     right_stick,
     count,
@@ -109,6 +124,10 @@ struct PadLayout
     const char*    menu_label     = nullptr;  // the menu button's label, the same way
     bool           menu_held      = false;
     bool           menu_pressed   = false;
+    // The frontend's look: the theme's pad colors at these opacities,
+    // the same in every layout (alpha and `overlay` aren't used then).
+    // nullptr: the layout's own alpha (piccoletto).
+    const PadLook* look           = nullptr;
 };
 
 constexpr int32_t PAD_MAX_PARTS = 32;   // `held`'s bits
@@ -200,9 +219,19 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
 // One part at screen position (retro pixels), at `alpha`; `held` lit;
 // `overlay`: in the button color (over a picture) instead of the field color
 // (on the pad's body). A stick's nub is drawn at (stick_x, stick_y), -1..1
-// from the middle.
+// from the middle. With `look`: the theme's pad colors for the part's kind at
+// its opacities instead (alpha and overlay unused), each part outlined. The
+// kind comes from part->group (d-pad, face: by its RetroPad button, shoulders,
+// center), part->kind (stick, action, menu); see pad_layout_color_group for a
+// six-face style's L / R.
+
 void pad_part_draw(const TouchUi* ui, const PadPart* part, float x, float y, float width, float height, float alpha, bool held,
-                   bool overlay, float stick_x, float stick_y);
+                   bool overlay, float stick_x, float stick_y, const PadLook* look = nullptr);
+
+// The group that picks a part's colors: its own, except in a six-face style,
+// where the parts on L / R sit in the face buttons' grid and take the face
+// colors. Draw with a copy of the part whose `group` is this one.
+PadGroup pad_layout_color_group(const PadLayout* layout, const PadPart* part);
 
 // A flat block (the pad's body, a bezel) in reference dp.
 void pad_block(const TouchUi* ui, const PadFrame* frame, float x, float y, float width, float height, uint32_t argb);

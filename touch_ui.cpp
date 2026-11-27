@@ -329,6 +329,31 @@ int32_t touch_ui_stepper(const TouchUi* ui, const char* id, const char* value, f
     return step;
 }
 
+bool touch_ui_slider(const TouchUi* ui, const char* id, float* value, const char* text, float x, float y, float width,
+                     float height)
+{
+    const RetroUiPalette* palette = &ui->palette;
+    bool held = false;
+    touch_ui_area(ui, id, x, y, width, height, &held, TouchNav::taps_only);
+    bool changed = false;
+    if (held && width > 0.0f)
+    {
+        float finger = ImGui::GetIO().MousePos.x / static_cast<float>(ui->scale);
+        float wanted = (finger - x) / width;
+        wanted = wanted < 0.0f ? 0.0f : (wanted > 1.0f ? 1.0f : wanted);
+        wanted = std::round(wanted * 20.0f) / 20.0f;   // 5% steps
+        changed = wanted != *value;
+        *value = wanted;
+    }
+    touch_ui_rect(ui, x, y, width, height, palette->field_face);
+    touch_ui_rect(ui, x, y, std::floor(width * *value), height, held ? palette->highlight : palette->button_face);
+    touch_ui_outline(ui, x, y, width, height, 1.0f, palette->button_light);
+    float text_width = touch_ui_text_width(ui, text, TouchText::normal);
+    touch_ui_text(ui, std::floor(x + (width - text_width) * 0.5f), touch_ui_centered_text_y(ui, y, height, TouchText::normal), text,
+                  palette->field_text, TouchText::normal);
+    return changed;
+}
+
 void touch_ui_outline(const TouchUi* ui, float x, float y, float width, float height, float thickness, uint32_t argb)
 {
     touch_ui_rect(ui, x, y, width, thickness, argb);
