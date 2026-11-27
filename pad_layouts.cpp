@@ -20,8 +20,9 @@ constexpr PadGroup LSTICK = PadGroup::left_stick;
 constexpr PadGroup RSTICK = PadGroup::right_stick;
 
 // GAMEPAD, portrait (390 x 844 dp): shoulders on top, the body below with the
-// d-pad and the face buttons, SELECT / START / the piccolo menu, both sticks
-// at the bottom; the action button (HOTKEY) under SELECT / START. (The
+// d-pad and the face buttons, SELECT, the menu button and START (the menu
+// between them, as in every layout: Andrés, 2026-11-27), both sticks at the
+// bottom; the action button (HOTKEY) under them. (The
 // header line is the screen's, not the layout's.)
 static const PadPart GAMEPAD_PORTRAIT[] = {
     {"##l2", "L2", 16, 92, 160, 40, BUTTON, NORMAL, LSH},
@@ -37,8 +38,9 @@ static const PadPart GAMEPAD_PORTRAIT[] = {
     {"##b", "B", 258, 384, 56, 56, BUTTON, BIG, FACE},
     {"##y", "Y", 202, 328, 56, 56, BUTTON, BIG, FACE},
     {"##a", "A", 314, 328, 56, 56, BUTTON, BIG, FACE},
-    {"##select", "SELECT", 100, 496, 88, 44, BUTTON, NORMAL, CENTER},
-    {"##start", "START", 202, 496, 88, 44, BUTTON, NORMAL, CENTER},
+    {"##select", "SELECT", 79, 496, 88, 44, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 173, 496, 44, 44, MENU, BIG, CENTER},
+    {"##start", "START", 223, 496, 88, 44, BUTTON, NORMAL, CENTER},
     {"##hotkey", "HOTKEY", 155, 556, 80, 40, ACTION, NORMAL, CENTER},
     {"##lstick", "", 48, 652, 112, 112, STICK, NORMAL, LSTICK},
     {"##rstick", "", 230, 652, 112, 112, STICK, NORMAL, RSTICK},
