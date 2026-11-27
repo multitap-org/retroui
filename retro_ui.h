@@ -15,10 +15,10 @@ struct ImVec4;
 
 // The colors of the whole UI (0xAARRGGBB; alpha is always FF). Themes are
 // palettes (decided by Andrés, 2026-11-14, renamed 2026-11-19): BLUE (navy, the
-// default), PURPLE (atomic purple), ZSNES (a blue gradient bar with grey boxes
-// behind the menu titles) and BLACK (flat, the dropdowns the same color as the
-// bar); every color can
-// also be set on its own in SETTINGS > INTERFACE.
+// default), ATOMIC PURPLE (the indigo GameCube controller), ZSNES (a blue
+// gradient bar with grey boxes behind the menu titles) and BLACK (flat, the
+// dropdowns the same color as the bar); every color can also be set on its own
+// in SETTINGS > INTERFACE.
 struct RetroUiPalette
 {
     uint32_t background;       // behind the game and the menu
