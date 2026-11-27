@@ -132,6 +132,33 @@ void touch_ui_rect(const TouchUi* ui, float x, float y, float width, float heigh
                                               retro_ui_color_imgui(argb));
 }
 
+float touch_ui_text_wrapped_height(const TouchUi* ui, float width, const char* text, TouchText size)
+{
+    ImVec2 measured = ui->font->CalcTextSizeA(font_size(ui, size), FLT_MAX, px(ui, width), text);
+    return std::ceil(measured.y / static_cast<float>(ui->scale));
+}
+
+float touch_ui_text_wrapped(const TouchUi* ui, float x, float y, float width, const char* text, uint32_t argb,
+                            TouchText size)
+{
+    ImGui::GetWindowDrawList()->AddText(ui->font, font_size(ui, size), ImVec2(px(ui, x), px(ui, y)),
+                                        retro_ui_color_imgui(argb), text, nullptr, px(ui, width));
+    return touch_ui_text_wrapped_height(ui, width, text, size);
+}
+
+void touch_ui_image_smooth(const TouchUi* ui, uint64_t texture, float x, float y, float width, float height,
+                           float u_max, float v_max)
+{
+    // Bilinear for this image only, then back to the screen's nearest (the
+    // pixel font's: touch_ui_begin_screen).
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
+    draw_list->AddImage(ImTextureRef(static_cast<ImTextureID>(texture)), ImVec2(px(ui, x), px(ui, y)),
+                        ImVec2(px(ui, x + width), px(ui, y + height)), ImVec2(0.0f, 0.0f), ImVec2(u_max, v_max));
+    draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);
+}
+
 // Where text of `size` goes to look centered in a box `height` tall: the
 // letters are rows 2..6 of the font's 8-row cell, so the cell sits half a
 // font pixel higher than plain centering would put it.

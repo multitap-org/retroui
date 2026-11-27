@@ -22,11 +22,14 @@ add_library(retroui STATIC
     game_view.cpp
     retro_ui_theme.cpp
     shader_check_view.cpp
+    continue_view.cpp
     pad_picture.cpp
     ports_view.cpp
     port_indicators.cpp
     dvr_view.cpp
+    dvr_view_phone.cpp
     hud_view.cpp
+    touch_header.cpp
     touch_ui.cpp
     touch_fingers.cpp
     retropad.cpp
@@ -66,6 +69,17 @@ if(MULTITAP_BUILD_TESTS)
     target_link_libraries(retroui_scale_test PRIVATE retroui)
     multitap_set_project_flags(retroui_scale_test)
     add_test(NAME retroui_scale COMMAND retroui_scale_test)
+
+    # The CONTINUE card's picture at the aspect it was played at.
+    add_executable(retroui_continue_view_test tests/continue_view_test.cpp)
+    target_link_libraries(retroui_continue_view_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_continue_view_test)
+    add_test(NAME retroui_continue_view COMMAND retroui_continue_view_test)
+    add_executable(retroui_theme_contrast_test tests/theme_contrast_test.cpp)
+    target_link_libraries(retroui_theme_contrast_test PRIVATE retroui)
+    multitap_set_project_flags(retroui_theme_contrast_test)
+    add_test(NAME retroui_theme_contrast COMMAND retroui_theme_contrast_test)
+    set_tests_properties(retroui_continue_view PROPERTIES PASS_REGULAR_EXPRESSION "continue view: all checks passed")
 
     # The HUD's stacks: icons top right, cards bottom right, nothing overlapping.
     add_executable(retroui_hud_view_test tests/hud_view_test.cpp)

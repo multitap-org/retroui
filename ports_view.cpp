@@ -36,6 +36,7 @@ constexpr float DONE_WIDTH   = 40.0f;
 constexpr float ARROW_WIDTH  = 12.0f;
 constexpr float BOARD_SHEET     = 0.4f;   // the share of the screen the board takes from the bottom...
 constexpr float BOARD_SHEET_MAX = 0.7f;   // ...more only if a column needs it, up to this
+constexpr uint32_t ROW_CHIPS    = 2;      // rows (upright): chips side by side in a port's row
 
 // Over the game: cards the game shows through (piccoletto's). The frontend
 // dims the game behind the board itself (piccolo's BACKDROP), not this.
@@ -283,6 +284,14 @@ static float card_height(const PortsView* view, const PortsViewColumn* column)
     return CARD_PADDING + HEADER + GAP + content + CARD_PADDING;
 }
 
+// Rows (upright): a port's card, its chips two a line.
+static float row_card_height(const PortsView* view, const PortsViewColumn* column)
+{
+    size_t lines = (column->chips.size() + ROW_CHIPS - 1) / ROW_CHIPS;
+    float content = lines == 0 ? LINE : static_cast<float>(lines) * (view->chip_height + GAP) - GAP;
+    return CARD_PADDING + HEADER + GAP + content + CARD_PADDING;
+}
+
 // ---------------------------------------------------------------------------
 // Tabs
 // ---------------------------------------------------------------------------
@@ -442,6 +451,134 @@ void ports_view_open_board(PortsView* view)
     view->done_focus = false;
 }
 
+// Rows (a phone held upright): a card per port across the width, under each
+// other, scrolled up and down to keep the pick in view. A tap on a chip
+// picks it (again: puts it down); a tap on another port's row moves it there
+// (those rows say MOVE HERE meanwhile).
+static void draw_rows(PortsView* view, const PortsViewText* text, float x, float y, float width, float height, float block,
+                      PortsViewBoardInput* input)
+{
+    const RetroUiPalette* palette = retro_ui_palette();
+    float gap = BOARD_GAP * block;
+    uint32_t rows = board_columns(view);
+    int32_t picked_port = 0;
+    bool has_pick = view->has_pick && ports_view_find(view, view->picked, &picked_port);
+
+    // Where each row starts, and the pick's row kept in view.
+    float total = 0.0f;
+    float pick_top = 0.0f;
+    float pick_bottom = 0.0f;
+    for (uint32_t r = 0; r < rows; r++)
+    {
+        int32_t port = 0;
+        const PortsViewColumn* column = board_column(view, r, &port);
+        float card = row_card_height(view, column) * block;
+        if (has_pick && port == picked_port)
+        {
+            pick_top = total;
+            pick_bottom = total + card;
+        }
+        total += card + gap;
+    }
+    total -= gap;
+    float max_scroll = total > height ? total - height : 0.0f;
+    if (has_pick)
+    {
+        if (pick_top < view->scroll_target)
+        {
+            view->scroll_target = pick_top;
+        }
+        else if (pick_bottom > view->scroll_target + height)
+        {
+            view->scroll_target = pick_bottom - height;
+        }
+    }
+    view->scroll_target = view->scroll_target < 0.0f ? 0.0f : (view->scroll_target > max_scroll ? max_scroll : view->scroll_target);
+    if (view->scroll < 0.0f)
+    {
+        view->scroll = view->scroll_target;
+    }
+    view->scroll += (view->scroll_target - view->scroll) * 0.25f;
+    if (std::fabs(view->scroll_target - view->scroll) < 0.5f)
+    {
+        view->scroll = view->scroll_target;
+    }
+
+    retro_ui_layer_clip(x, y, width, height);
+    float row_y = y - std::floor(view->scroll);
+    for (uint32_t r = 0; r < rows; r++)
+    {
+        int32_t port = 0;
+        const PortsViewColumn* column = board_column(view, r, &port);
+        float card = row_card_height(view, column) * block;
+        bool target = has_pick && port != picked_port;
+        retro_ui_layer_rect(x, row_y, width, card, retro_ui_color_set_alpha(palette->panel_face, CARD_ALPHA));
+        if (target)
+        {
+            // MOVE HERE's row: an edge in the highlight.
+            uint32_t edge = palette->highlight;
+            retro_ui_layer_rect(x, row_y, width, block, edge);
+            retro_ui_layer_rect(x, row_y + card - block, width, block, edge);
+            retro_ui_layer_rect(x, row_y, block, card, edge);
+            retro_ui_layer_rect(x + width - block, row_y, block, card, edge);
+        }
+        float line_x = x + CARD_PADDING * block;
+        float line_y = row_y + CARD_PADDING * block;
+        float right = x + width - CARD_PADDING * block;
+        if (port < 0)
+        {
+            retro_ui_layer_text(line_x, line_y, text->out, palette->text_disabled);
+        }
+        else
+        {
+            char title[32];
+            float leds = draw_leds(line_x, line_y, block, view->port_count, static_cast<uint32_t>(port), has_live(column));
+            std::snprintf(title, sizeof(title), text->port, static_cast<unsigned>(port + 1));
+            retro_ui_layer_text(line_x + leds + 4.0f * block, line_y, title, palette->text_disabled);
+        }
+        if (target)
+        {
+            retro_ui_layer_text(right - retro_ui_layer_text_width(text->move_here), line_y, text->move_here, palette->highlight);
+        }
+        else if (port >= 0)
+        {
+            draw_ping(column, text, right, line_y, block);
+        }
+        float chip_y = line_y + (HEADER + GAP) * block;
+        float chip_width = std::floor((width - 2.0f * CARD_PADDING * block - gap * static_cast<float>(ROW_CHIPS - 1)) /
+                                      static_cast<float>(ROW_CHIPS));
+        bool chip_clicked = false;
+        if (column->chips.empty())
+        {
+            retro_ui_layer_text(line_x, chip_y, text->nobody, palette->text_disabled);
+        }
+        for (size_t i = 0; i < column->chips.size(); i++)
+        {
+            const PortsViewChip* chip = &column->chips[i];
+            float chip_x = line_x + static_cast<float>(i % ROW_CHIPS) * (chip_width + gap);
+            float this_y = chip_y + static_cast<float>(i / ROW_CHIPS) * (view->chip_height + GAP) * block;
+            draw_chip(view, chip, text, chip_x, this_y, chip_width, block, has_pick && !view->done_focus && chip->key == view->picked);
+            if (!chip->gone && clicked_in(chip_x, this_y, chip_width, view->chip_height * block) &&
+                clicked_in(x, y, width, height))
+            {
+                bool same = has_pick && chip->key == view->picked;
+                view->has_pick = !same;
+                view->done_focus = false;
+                view->picked = chip->key;
+                chip_clicked = true;
+            }
+        }
+        if (!chip_clicked && target && clicked_in(x, row_y, width, card) && clicked_in(x, y, width, height))
+        {
+            input->move = true;
+            input->key = view->picked;
+            input->port = port;
+        }
+        row_y += card + gap;
+    }
+    retro_ui_layer_unclip();
+}
+
 void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, const PortsViewText* text, uint64_t now_ms,
                            PortsViewBoardInput* input)
 {
@@ -459,13 +596,17 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     // A sheet from the bottom (where the tabs are): 40% of the screen, taller
     // (up to 70%) only if the tallest column needs it; it slides up.
     float tallest = 0.0f;
+    float stacked = 0.0f;   // rows: all of them, one under the other
     for (uint32_t c = 0; c < board_columns(view); c++)
     {
         int32_t port = 0;
-        float height = card_height(view, board_column(view, c, &port));
+        const PortsViewColumn* column = board_column(view, c, &port);
+        float height = card_height(view, column);
         tallest = height > tallest ? height : tallest;
+        stacked += row_card_height(view, column) + (c > 0 ? BOARD_GAP : 0.0f);
     }
-    float needed = (2.0f * BOARD_MARGIN + BOARD_HEADER + BOARD_HINT + 2.0f * BOARD_GAP + tallest) * block;
+    float content_needed = view->rows ? stacked : tallest;
+    float needed = (2.0f * BOARD_MARGIN + BOARD_HEADER + BOARD_HINT + 2.0f * BOARD_GAP + content_needed) * block;
     float sheet_height = needed < BOARD_SHEET * screen_height ? BOARD_SHEET * screen_height : needed;
     sheet_height = sheet_height > BOARD_SHEET_MAX * screen_height ? BOARD_SHEET_MAX * screen_height : sheet_height;
     float dt = view->board_last_ms == 0 || now_ms < view->board_last_ms
@@ -517,6 +658,12 @@ void ports_view_draw_board(PortsView* view, ImFont* pixel_font, int32_t scale, c
     float content_y = hint_y + hint_height + gap;
     float content_height = sheet_top + sheet_height - content_y - margin;   // (down to the sheet's bottom)
     content_height = content_height < 0.0f ? 0.0f : content_height;
+    if (view->rows)
+    {
+        draw_rows(view, text, margin, content_y, inner_width, content_height, block, input);
+        retro_ui_end_layer();
+        return;
+    }
     uint32_t columns = board_columns(view);
     float column_width = (inner_width - static_cast<float>(columns - 1) * gap) / static_cast<float>(columns);
     float minimum = COLUMN_MIN * block;

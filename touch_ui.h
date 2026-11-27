@@ -82,8 +82,20 @@ float touch_ui_text_height(const TouchUi* ui, TouchText size);
 // font scales (frontends-common sets the DPI one to the display's scale).
 float touch_ui_imgui_font_size(const TouchUi* ui, TouchText size);
 
+// Text broken at spaces into lines no wider than `width`, its top left at
+// (x, y). Returns its height in retro pixels; _height measures it alone.
+float touch_ui_text_wrapped(const TouchUi* ui, float x, float y, float width, const char* text, uint32_t argb,
+                            TouchText size);
+float touch_ui_text_wrapped_height(const TouchUi* ui, float width, const char* text, TouchText size);
+
 // A filled rectangle.
 void touch_ui_rect(const TouchUi* ui, float x, float y, float width, float height, uint32_t argb);
+
+// A texture (the toolkit's id, e.g. VideoTexture::ui_texture) stretched over
+// the rectangle, [0, u_max] x [0, v_max] of it, sampled bilinear: with a
+// texture already scaled up by a whole number with nearest, sharp bilinear.
+void touch_ui_image_smooth(const TouchUi* ui, uint64_t texture, float x, float y, float width, float height,
+                           float u_max, float v_max);
 
 enum class TouchButton
 {

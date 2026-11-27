@@ -12,10 +12,12 @@
 constexpr float RETRO_UI_SCROLLBAR_WIDTH = 5.0f;
 constexpr float RETRO_UI_SCROLLBAR_GAP = 4.0f;
 
-// The built-in themes (0xAARRGGBB).
+// The built-in themes (0xAARRGGBB). No element's face is the color of what
+// it sits on (Andrés, 2026-11-26: a button the screen's color is only its
+// label): checked by tests/theme_contrast_test.cpp.
 static const RetroUiPalette THEMES[] = {
     // BLUE: piccolo's colors, navy blue, the default; no drop shadows on windows.
-    {0xFF000000u, false,
+    {0xFF34507Cu, false,
      0xFF34507Cu, 0xFF34507Cu, 0xFF5878A8u, 0xFF1A2840u,
      false, 0xFF34507Cu, 0xFF5878A8u, 0xFF5878A8u,
      0xFF2A4068u, 0xFF2A4068u, 0xFF5878A8u, 0xFF101828u,
@@ -23,10 +25,10 @@ static const RetroUiPalette THEMES[] = {
      0xFFE0E6F0u, 0xFFFFFFFFu, 0xFF8090B0u, 0xFF101828u,
      0xFF34507Cu, 0xFF34507Cu,
      0xFFFFFFFFu, 0xFFE0E6F0u,
-     0xFF34507Cu, 0xFF34507Cu, 0xFF34507Cu, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF34507Cu, 0xFF8CB4F0u},
+     0xFF4A6898u, 0xFF4A6898u, 0xFF4A6898u, 0xFFE0E6F0u, 0xFFE0E6F0u, false, 0xFF8CB4F0u, 0xFF4A6898u, 0xFF8CB4F0u, 40u},
     // PURPLE: atomic purple, a see-through grape like the handheld shells; no
     // drop shadows on windows.
-    {0xFF000000u, false,
+    {0xFF5B2D83u, false,
      0xFF5B2D83u, 0xFF5B2D83u, 0xFF8350B0u, 0xFF2F1644u,
      false, 0xFF5B2D83u, 0xFF8350B0u, 0xFF8350B0u,
      0xFF4B246Eu, 0xFF4B246Eu, 0xFF8350B0u, 0xFF1D0E2Au,
@@ -34,7 +36,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFE9DEF2u, 0xFFFFFFFFu, 0xFF9A7BB5u, 0xFF1D0E2Au,
      0xFF5B2D83u, 0xFF5B2D83u,
      0xFFFFFFFFu, 0xFFE9DEF2u,
-     0xFF5B2D83u, 0xFF5B2D83u, 0xFF5B2D83u, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF5B2D83u, 0xFFC282FAu},
+     0xFF70409Eu, 0xFF70409Eu, 0xFF70409Eu, 0xFFE9DEF2u, 0xFFE9DEF2u, false, 0xFFC282FAu, 0xFF70409Eu, 0xFFC282FAu, 40u},
     // ZSNES: purple background, a deep blue gradient bar with grey boxes
     // behind the menu titles, grey menus with a magenta highlight, blue
     // windows with black fields, drop shadows everywhere.
@@ -46,7 +48,7 @@ static const RetroUiPalette THEMES[] = {
      0xFFCECFCEu, 0xFFFFFFFFu, 0xFF8C8682u, 0xFF292521u,
      0xFF7C76A6u, 0xFF383C5Fu,
      0xFFB01818u, 0xFF9C9C68u,
-     0xFF7C76A6u, 0xFFA29EC8u, 0xFF262840u, 0xFFCECFCEu, 0xFF00E000u, true, 0xFFF56F37u, 0xFF383C5Fu, 0xFFF64D25u},
+     0xFF7C76A6u, 0xFFA29EC8u, 0xFF262840u, 0xFFCECFCEu, 0xFF00E000u, true, 0xFFF56F37u, 0xFF383C5Fu, 0xFFF64D25u, 40u},
     // BLACK: flat and dark, never a shadow; the menus are the bar's color.
     {0xFF000000u, false,
      0xFF1E222Au, 0xFF1E222Au, 0xFF1E222Au, 0xFF1E222Au,
@@ -56,10 +58,13 @@ static const RetroUiPalette THEMES[] = {
      0xFFE6E9EFu, 0xFFFFFFFFu, 0xFF7D8494u, 0xFF0F1115u,
      0xFF1E222Au, 0xFF1E222Au,
      0xFFFFFFFFu, 0xFFE6E9EFu,
-     0xFF2E3440u, 0xFF2E3440u, 0xFF2E3440u, 0xFFE6E9EFu, 0xFFE6E9EFu, false, 0xFFB4BAC6u, 0xFF2E3440u, 0xFFB4BAC6u},
+     0xFF2E3440u, 0xFF2E3440u, 0xFF2E3440u, 0xFFE6E9EFu, 0xFFE6E9EFu, false, 0xFFB4BAC6u, 0xFF2E3440u, 0xFFB4BAC6u, 40u},
 };
 
 static RetroUiPalette g_palette = THEMES[0];
+
+// Page mode (retro_ui_set_page_mode): windows fill the screen, rows stack.
+static bool g_page_mode = false;
 
 const RetroUiPalette* retro_ui_theme_palette(RetroUiTheme theme)
 {
@@ -273,6 +278,22 @@ int32_t retro_ui_scale_for_window(float window_width, float window_height)
     return scale < 1 ? 1 : scale;
 }
 
+void retro_ui_set_page_mode(bool on)
+{
+    g_page_mode = on;
+}
+
+bool retro_ui_page_mode()
+{
+    return g_page_mode;
+}
+
+bool retro_ui_page_upright()
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    return g_page_mode && io.DisplaySize.y > io.DisplaySize.x;
+}
+
 void retro_ui_center_windows(void)
 {
     const ImGuiContext* context = ImGui::GetCurrentContext();
@@ -453,6 +474,12 @@ static int32_t bar_menu(const RetroUiMenu* menu, float block, bool open_now)
     use_linear_sampler();
     ImGui::EndMenu();
     return picked;
+}
+
+// 2 + 8 (the font's line) + 2 retro pixels: retro_ui_menu_bar's frame padding.
+float retro_ui_menu_bar_height(int32_t scale)
+{
+    return 12.0f * static_cast<float>(scale);
 }
 
 int32_t retro_ui_menu_bar(ImFont* pixel_font, int32_t scale, const RetroUiMenu* menus, int32_t menu_count,
@@ -717,11 +744,33 @@ void retro_ui_pop_theme()
 // The title bar as a gradient (title_top -> title_bottom), with the title
 // text drawn again on it (shadowed with the palette's shadows): ImGui's own
 // title bar is one flat color.
+// Page mode's header, where the title bar is: the screen's background, a
+// square at the left for the back arrow (retro_ui_close_button draws it),
+// then the title, as piccoletto's pages.
+static void draw_page_header(ImGuiWindow* window)
+{
+    ImRect title = window->TitleBarRect();
+    ImDrawList* draw_list = window->DrawList;
+    draw_list->PushClipRect(title.Min, title.Max, false);
+    draw_list->AddRectFilled(title.Min, title.Max, retro_ui_color_imgui(g_palette.background));
+    float side = title.GetHeight();
+    const char* end = ImGui::FindRenderedTextEnd(window->Name);
+    ImVec2 text = ImGui::CalcTextSize(window->Name, end);
+    ImVec2 position(title.Min.x + side, title.Min.y + std::floor((side - text.y) * 0.5f));
+    draw_list->AddText(position, retro_ui_color_imgui(g_palette.text_highlight), window->Name, end);
+    draw_list->PopClipRect();
+}
+
 static void draw_title_bar()
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->Flags & ImGuiWindowFlags_NoTitleBar)
     {
+        return;
+    }
+    if (g_page_mode)
+    {
+        draw_page_header(window);
         return;
     }
     ImRect title = window->TitleBarRect();
@@ -741,6 +790,10 @@ void retro_ui_begin_window(int32_t scale)
 {
     use_nearest_sampler();
     draw_title_bar();
+    if (g_page_mode)
+    {
+        return;   // a page: the screen's edges are its edges, nothing drops a shadow
+    }
     draw_window_shadow(static_cast<float>(scale));
     draw_bevel(ImGui::GetWindowPos(), ImGui::GetWindowSize(), static_cast<float>(scale), g_palette.panel_light, g_palette.panel_light, true);
 }
@@ -751,6 +804,13 @@ bool retro_ui_close_button()
     ImRect title = window->TitleBarRect();
     float side = title.GetHeight();
     ImRect box(ImVec2(title.Max.x - side, title.Min.y), title.Max);
+    // A page's way out is the back arrow at its header's left.
+    const char* glyph = "X";
+    if (g_page_mode)
+    {
+        box = ImRect(title.Min, ImVec2(title.Min.x + side, title.Max.y));
+        glyph = PIXEL_FONT_UTF8_ARROW_LEFT;
+    }
     ImGuiID id = window->GetID("#retro_close");
 
     // The title bar is outside the content's clip rect: open it up while we
@@ -766,10 +826,10 @@ bool retro_ui_close_button()
         {
             window->DrawList->AddRectFilled(box.Min, box.Max, retro_ui_color_imgui(g_palette.highlight));
         }
-        ImVec2 text = ImGui::CalcTextSize("X");
+        ImVec2 text = ImGui::CalcTextSize(glyph);
         ImVec2 position(box.Min.x + static_cast<float>(static_cast<int32_t>((side - text.x) * 0.5f)),
                         box.Min.y + static_cast<float>(static_cast<int32_t>((side - text.y) * 0.5f)));
-        window->DrawList->AddText(position, retro_ui_color_imgui(hovered ? g_palette.text_highlight : g_palette.text), "X");
+        window->DrawList->AddText(position, retro_ui_color_imgui(hovered ? g_palette.text_highlight : g_palette.text), glyph);
     }
     ImGui::PopClipRect();
     return pressed;

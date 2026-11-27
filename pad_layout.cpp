@@ -465,6 +465,17 @@ static uint32_t dpad_held(const TouchUi* ui, const PadFrame* frame, const PadLay
     return directions;
 }
 
+void pad_face_zone(float x, float y, float width, float height, float* zone_x, float* zone_y, float* zone_width,
+                   float* zone_height)
+{
+    float shorter = width < height ? width : height;
+    float grow = shorter * PAD_FACE_REACH;
+    *zone_x = x - grow;
+    *zone_y = y - grow;
+    *zone_width = width + 2.0f * grow;
+    *zone_height = height + 2.0f * grow;
+}
+
 bool pad_pair_zone(float x, float y, float a_x, float a_y, float b_x, float b_y)
 {
     float apart_x = b_x - a_x;
@@ -648,7 +659,8 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         float screen_width = pad_size(frame, width);
         float screen_height = pad_size(frame, height);
         // The d-pad's parts are held from its area (dpad_held; its middle
-        // presses nothing), every other part by a finger on it; A and B
+        // presses nothing), the face buttons by a finger in their bigger
+        // zone (pad_face_zone), every other part by a finger on it; A and B
         // also from the space between them on a two-button style (pair_held).
         const TouchFinger* finger = nullptr;
         bool touched = false;
@@ -660,7 +672,15 @@ void pad_layout_draw(const TouchUi* ui, const PadFrame* frame, PadLayout* layout
         }
         else
         {
-            finger = holding_finger(ui, part, screen_x, screen_y, screen_width, screen_height);
+            float zone_x = screen_x;
+            float zone_y = screen_y;
+            float zone_width = screen_width;
+            float zone_height = screen_height;
+            if (part->group == PadGroup::face && part->kind == PadPartKind::button)
+            {
+                pad_face_zone(screen_x, screen_y, screen_width, screen_height, &zone_x, &zone_y, &zone_width, &zone_height);
+            }
+            finger = holding_finger(ui, part, zone_x, zone_y, zone_width, zone_height);
             touched = finger != nullptr || (is_button && (pair & direction_bit(button)) != 0);
         }
         float stick_x = 0.0f;

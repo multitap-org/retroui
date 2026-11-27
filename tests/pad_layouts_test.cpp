@@ -61,6 +61,25 @@ int main()
     uint32_t down = bit(RetroPadButton::down);
     uint32_t left = bit(RetroPadButton::left);
     uint32_t right = bit(RetroPadButton::right);
+    // Face zones: a SNES diamond of 10-pixel blocks whose corners touch
+    // (B below the middle, A right of it).
+    {
+        float b_x = 0.0f;
+        float b_y = 0.0f;
+        float b_w = 0.0f;
+        float b_h = 0.0f;
+        float a_x = 0.0f;
+        float a_y = 0.0f;
+        float a_w = 0.0f;
+        float a_h = 0.0f;
+        pad_face_zone(-5.0f, 5.0f, 10.0f, 10.0f, &b_x, &b_y, &b_w, &b_h);   // B: middle (0, 10)
+        pad_face_zone(5.0f, -5.0f, 10.0f, 10.0f, &a_x, &a_y, &a_w, &a_h);   // A: middle (10, 0)
+        bool in_b = 6.0f >= b_x && 6.0f < b_x + b_w && 6.0f >= b_y && 6.0f < b_y + b_h;
+        bool in_a = 6.0f >= a_x && 6.0f < a_x + a_w && 6.0f >= a_y && 6.0f < a_y + a_h;
+        check(in_b && in_a, "face zones: a thumb between B and A presses both");
+        bool middle_in_a = 0.0f >= a_x && 0.0f < a_x + a_w && 0.0f >= a_y && 0.0f < a_y + a_h;
+        check(!middle_in_a, "face zones: the diamond's middle presses nothing");
+    }
     check(pad_dpad_directions(0.0f, 0.0f) == 0, "d-pad: the middle presses nothing");
     check(pad_dpad_directions(0.1f, 0.05f) == 0, "d-pad: a resting thumb near the middle neither");
     check(pad_dpad_directions(0.0f, -0.8f) == up, "d-pad: up");
