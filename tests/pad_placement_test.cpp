@@ -41,6 +41,17 @@ int main()
     check(tall.id == PadLayoutId::remote_overlay_portrait && !tall.below, "portrait 1:2: the overlay");
     check(tall.picture_height == 422.0f, "portrait 1:2: the picture keeps the screen");
 
+    // MINIMAL: the controller's own arrangement, sideways and under the picture;
+    // a tall picture keeps the FULL overlay.
+    check(pad_layouts_place(layouts, 422.0f, 195.0f, 4.0f / 3.0f, 4.0f, PadMinimal::two).id ==
+              PadLayoutId::two_overlay_landscape,
+          "minimal: NES / Game Boy sideways");
+    PadPlacement snes = pad_layouts_place(layouts, 195.0f, 422.0f, 4.0f / 3.0f, 12.0f, PadMinimal::snes);
+    check(snes.id == PadLayoutId::snes_below && snes.below && snes.frame.dp_scale == upright.frame.dp_scale,
+          "minimal: SNES under the picture, the FULL pad's size");
+    check(pad_layouts_place(layouts, 195.0f, 422.0f, 0.5f, 4.0f, PadMinimal::snes).id == PadLayoutId::remote_overlay_portrait,
+          "minimal: a tall picture keeps the overlay");
+
     // The default alpha follows the setting unless EDIT LAYOUT set one.
     PadLayout* overlay = pad_layouts_get(layouts, PadLayoutId::remote_overlay_portrait);
     pad_layout_set_default_alpha(overlay, 0.3f);

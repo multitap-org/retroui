@@ -134,6 +134,79 @@ static const PadPart REMOTE_OVERLAY_PORTRAIT[] = {
     {"##hotkey", "HOTKEY", 155, 744, 80, 32, ACTION, NORMAL, CENTER},
 };
 
+// MINIMAL (Andrés, 2026-11-27): only the controller's own buttons, where it
+// has them, bigger (mockups: piccolo-agents docs/mockups/pad-layouts). The
+// d-pad and a four-button face are the same 3 x 3 grid, mirrored; upright
+// everything sits at the bottom, over the middle row, L and R level. The
+// building blocks (groups) are the RetroPad's, each moved on its own in
+// EDIT LAYOUT, and each arrangement keeps its own changes.
+
+// NES / Game Boy (PadMinimal::two), sideways: B and A big, on a slant.
+static const PadPart TWO_LANDSCAPE[] = {
+    {"##dpad_center", "", 82, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##up", PIXEL_FONT_UTF8_ARROW_UP, 82, 130, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 82, 242, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##left", PIXEL_FONT_UTF8_ARROW_LEFT, 26, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##right", PIXEL_FONT_UTF8_ARROW_RIGHT, 138, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##b", "B", 654, 198, 72, 72, BUTTON, BIG, FACE},
+    {"##a", "A", 742, 158, 72, 72, BUTTON, BIG, FACE},
+    {"##select", "SELECT", 318, 350, 76, 36, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 402, 350, 40, 36, MENU, BIG, CENTER},
+    {"##start", "START", 450, 350, 76, 36, BUTTON, NORMAL, CENTER},
+};
+
+// NES / Game Boy, upright under the picture (390 x 420).
+static const PadPart TWO_BELOW[] = {
+    {"##dpad_center", "", 68, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##up", PIXEL_FONT_UTF8_ARROW_UP, 68, 178, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 68, 290, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##left", PIXEL_FONT_UTF8_ARROW_LEFT, 12, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##right", PIXEL_FONT_UTF8_ARROW_RIGHT, 124, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##b", "B", 210, 258, 76, 76, BUTTON, BIG, FACE},
+    {"##a", "A", 302, 214, 76, 76, BUTTON, BIG, FACE},
+    {"##select", "SELECT", 95, 376, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 175, 376, 40, 32, MENU, BIG, CENTER},
+    {"##start", "START", 219, 376, 76, 32, BUTTON, NORMAL, CENTER},
+};
+
+// Super Nintendo (PadMinimal::snes), sideways: L and R, the d-pad, X Y A B.
+static const PadPart SNES_LANDSCAPE[] = {
+    {"##l", "L", 16, 12, 140, 40, BUTTON, NORMAL, LSH},
+    {"##r", "R", 688, 12, 140, 40, BUTTON, NORMAL, RSH},
+    {"##dpad_center", "", 82, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##up", PIXEL_FONT_UTF8_ARROW_UP, 82, 130, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 82, 242, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##left", PIXEL_FONT_UTF8_ARROW_LEFT, 26, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##right", PIXEL_FONT_UTF8_ARROW_RIGHT, 138, 186, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##x", "X", 706, 130, 56, 56, BUTTON, BIG, FACE},
+    {"##y", "Y", 650, 186, 56, 56, BUTTON, BIG, FACE},
+    {"##a", "A", 762, 186, 56, 56, BUTTON, BIG, FACE},
+    {"##b", "B", 706, 242, 56, 56, BUTTON, BIG, FACE},
+    {"##select", "SELECT", 318, 350, 76, 36, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 402, 350, 40, 36, MENU, BIG, CENTER},
+    {"##start", "START", 450, 350, 76, 36, BUTTON, NORMAL, CENTER},
+};
+
+// Super Nintendo, upright under the picture (390 x 420).
+static const PadPart SNES_BELOW[] = {
+    {"##l", "L", 16, 112, 120, 36, BUTTON, NORMAL, LSH},
+    {"##r", "R", 254, 112, 120, 36, BUTTON, NORMAL, RSH},
+    {"##dpad_center", "", 68, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##up", PIXEL_FONT_UTF8_ARROW_UP, 68, 178, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##down", PIXEL_FONT_UTF8_ARROW_DOWN, 68, 290, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##left", PIXEL_FONT_UTF8_ARROW_LEFT, 12, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##right", PIXEL_FONT_UTF8_ARROW_RIGHT, 124, 234, 56, 56, BUTTON, NORMAL, DPAD},
+    {"##x", "X", 266, 178, 56, 56, BUTTON, BIG, FACE},
+    {"##y", "Y", 210, 234, 56, 56, BUTTON, BIG, FACE},
+    {"##a", "A", 322, 234, 56, 56, BUTTON, BIG, FACE},
+    {"##b", "B", 266, 290, 56, 56, BUTTON, BIG, FACE},
+    {"##select", "SELECT", 95, 376, 76, 32, BUTTON, NORMAL, CENTER},
+    {"##menu", "", 175, 376, 40, 32, MENU, BIG, CENTER},
+    {"##start", "START", 219, 376, 76, 32, BUTTON, NORMAL, CENTER},
+};
+
+#define COUNT(table) static_cast<int32_t>(sizeof(table) / sizeof(table[0]))
+
 static void define(PadLayouts* layouts, PadLayoutId id, const char* name, const PadPart* parts, int32_t count, float width,
                    float height, float alpha)
 {
@@ -160,6 +233,12 @@ void pad_layouts_init(PadLayouts* layouts)
            static_cast<int32_t>(sizeof(REMOTE_OVERLAY_PORTRAIT) / sizeof(REMOTE_OVERLAY_PORTRAIT[0])), 390.0f, 844.0f, 0.2f);
     define(layouts, PadLayoutId::remote_overlay_landscape, "remote_overlay_landscape", LANDSCAPE_PAD,
            static_cast<int32_t>(sizeof(LANDSCAPE_PAD) / sizeof(LANDSCAPE_PAD[0])), 844.0f, 390.0f, 0.2f);
+    define(layouts, PadLayoutId::two_below, "two_below", TWO_BELOW, COUNT(TWO_BELOW), 390.0f, 420.0f, 1.0f);
+    define(layouts, PadLayoutId::two_overlay_landscape, "two_overlay_landscape", TWO_LANDSCAPE, COUNT(TWO_LANDSCAPE), 844.0f,
+           390.0f, 0.2f);
+    define(layouts, PadLayoutId::snes_below, "snes_below", SNES_BELOW, COUNT(SNES_BELOW), 390.0f, 420.0f, 1.0f);
+    define(layouts, PadLayoutId::snes_overlay_landscape, "snes_overlay_landscape", SNES_LANDSCAPE, COUNT(SNES_LANDSCAPE),
+           844.0f, 390.0f, 0.2f);
 }
 
 PadLayout* pad_layouts_get(PadLayouts* layouts, PadLayoutId id)
@@ -198,13 +277,18 @@ static PadFrame fill_screen(PadLayout* overlay, float width, float height)
     return frame;
 }
 
-PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap)
+PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap, PadMinimal minimal)
 {
     PadPlacement placement;
     placement.picture_height = height;
+    PadLayoutId below_id = minimal == PadMinimal::two    ? PadLayoutId::two_below
+                           : minimal == PadMinimal::snes ? PadLayoutId::snes_below
+                                                         : PadLayoutId::remote_below;
     if (width >= height)
     {
-        placement.id = PadLayoutId::remote_overlay_landscape;
+        placement.id = minimal == PadMinimal::two    ? PadLayoutId::two_overlay_landscape
+                       : minimal == PadMinimal::snes ? PadLayoutId::snes_overlay_landscape
+                                                     : PadLayoutId::remote_overlay_landscape;
         placement.frame = fill_screen(pad_layouts_get(layouts, placement.id), width, height);
         return placement;
     }
@@ -213,11 +297,11 @@ PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, f
     picture = picture > height ? height : picture;
     float top = picture + gap;
     float room = height - top;
-    const PadLayout* below = pad_layouts_get(layouts, PadLayoutId::remote_below);
+    const PadLayout* below = pad_layouts_get(layouts, below_id);
     PadFrame frame = pad_frame_fit_into(below->width, below->height, 0.0f, top, width, room > 0.0f ? room : 0.0f);
     if (frame.dp_scale >= PAD_MIN_BELOW_SCALE)
     {
-        placement.id = PadLayoutId::remote_below;
+        placement.id = below_id;
         placement.frame = frame;
         placement.below = true;
         placement.picture_height = picture;

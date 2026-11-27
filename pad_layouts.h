@@ -17,6 +17,11 @@ enum class PadLayoutId
     remote_below,               // portrait, under the picture
     remote_overlay_portrait,    // portrait over a tall picture (the DS's bottom screen)
     remote_overlay_landscape,   // landscape, over the picture
+    // MINIMAL (PadMinimal): only a controller's own buttons, bigger; piccolo's.
+    two_below,                  // NES / Game Boy, portrait under the picture
+    two_overlay_landscape,      //   ...landscape over it
+    snes_below,                 // Super Nintendo, portrait under the picture
+    snes_overlay_landscape,     //   ...landscape over it
     count,
 };
 constexpr int32_t PAD_LAYOUT_COUNT = static_cast<int32_t>(PadLayoutId::count);
@@ -53,7 +58,18 @@ struct PadPlacement
 // (retro pixels per dp; the mockups' size is 0.5).
 constexpr float PAD_MIN_BELOW_SCALE = 0.3f;
 
+// The touch pad's arrangement: the whole RetroPad (FULL, the remote_ layouts)
+// or MINIMAL, only one controller's buttons where it has them (the two_ and
+// snes_ layouts). A tall picture (the DS) keeps remote_overlay_portrait.
+enum class PadMinimal
+{
+    none,
+    two,    // NES / Game Boy: the d-pad, B and A on a slant, SELECT and START
+    snes,   // Super Nintendo: L, R, the d-pad, X Y A B as a cross, SELECT and START
+};
+
 // `width` x `height`: the screen in retro pixels; `aspect` the picture's
 // (width / height; 0 = unknown, square); `gap` retro pixels between the
 // picture and a pad below it (piccoletto puts its status line there).
-PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap);
+PadPlacement pad_layouts_place(PadLayouts* layouts, float width, float height, float aspect, float gap,
+                               PadMinimal minimal = PadMinimal::none);
