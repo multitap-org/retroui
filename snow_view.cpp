@@ -54,6 +54,50 @@ static int32_t area_height(const SnowView* snow)
     return snow->height > 0 ? snow->height : DEFAULT_HEIGHT;
 }
 
+static void update_count(SnowView* snow)
+{
+    uint64_t count = static_cast<uint64_t>(area_width(snow)) * static_cast<uint64_t>(area_height(snow)) /
+                     static_cast<uint64_t>(snow->params.pixels_per_flake);
+    snow->count = count < SNOW_VIEW_MAX_FLAKES ? static_cast<uint32_t>(count) : SNOW_VIEW_MAX_FLAKES;
+    if (snow->width == 0)
+    {
+        snow->count = 0;   // no area yet
+    }
+}
+
+static int32_t clamp_int(int32_t value, int32_t min, int32_t max)
+{
+    return value < min ? min : (value > max ? max : value);
+}
+
+static float clamp_float(float value, float min, float max)
+{
+    return value < min ? min : (value > max ? max : value);
+}
+
+// Retro pixels to 1/256 of one.
+static int32_t to_fixed(float pixels)
+{
+    return static_cast<int32_t>(pixels * static_cast<float>(FIXED_ONE) + 0.5f);
+}
+
+void snow_view_set_params(SnowView* snow, const SnowParams* params)
+{
+    SnowParams clean = *params;
+    clean.pixels_per_flake = clamp_int(clean.pixels_per_flake, 16, 100000);
+    clean.step_hz = clamp_int(clean.step_hz, 1, 240);
+    clean.fall = clamp_float(clean.fall, 0.0f, 16.0f);
+    clean.fall_extra = clamp_float(clean.fall_extra, 0.0f, 16.0f);
+    clean.drift = clamp_float(clean.drift, 0.0f, 16.0f);
+    clean.shade_spread = clamp_int(clean.shade_spread, 0, 100);
+    if (clean.step_hz != snow->params.step_hz)
+    {
+        snow->started = false;
+    }
+    snow->params = clean;
+    update_count(snow);
+}
+
 void snow_view_start(SnowView* snow, uint32_t seed)
 {
     snow->random = seed != 0 ? seed : DEFAULT_SEED;
@@ -112,8 +156,7 @@ void snow_view_set_area(SnowView* snow, int32_t width, int32_t height)
     }
     snow->width = width;
     snow->height = height;
-    uint64_t count = static_cast<uint64_t>(width) * static_cast<uint64_t>(height) / SNOW_VIEW_PIXELS_PER_FLAKE;
-    snow->count = count < SNOW_VIEW_MAX_FLAKES ? static_cast<uint32_t>(count) : SNOW_VIEW_MAX_FLAKES;
+    update_count(snow);
 }
 
 bool snow_view_all_shown(const SnowView* snow)
@@ -156,11 +199,14 @@ void snow_view_step(SnowView* snow)
 {
     int32_t width = area_width(snow) * FIXED_ONE;
     int32_t height = area_height(snow) * FIXED_ONE;
+    int32_t fall = to_fixed(snow->params.fall);
+    int32_t fall_extra = to_fixed(snow->params.fall_extra);
+    int32_t drift = to_fixed(snow->params.drift);
     for (uint32_t i = 0; i < snow->count; i++)
     {
         SnowFlake* flake = &snow->flakes[i];
-        flake->x = (flake->x + flake->vx) % width;
-        flake->y += FIXED_ONE + flake->vy;
+        flake->x = (flake->x + flake->vx * drift / FIXED_ONE) % width;
+        flake->y += fall + flake->vy * fall_extra / FIXED_ONE;
         if (flake->y >= height)
         {
             flake->y %= height;
@@ -180,9 +226,11 @@ uint32_t snow_view_update(SnowView* snow, uint64_t now_ms)
         snow->steps = 0;
         return 0;
     }
-    uint64_t due = (now_ms - snow->start_ms) * SNOW_VIEW_STEP_HZ / 1000;
+    uint64_t hz = static_cast<uint64_t>(snow->params.step_hz);
+    uint64_t due = (now_ms - snow->start_ms) * hz / 1000;
+    uint32_t catch_up = static_cast<uint32_t>(hz / 4 > 0 ? hz / 4 : 1);
     uint32_t taken = 0;
-    while (snow->steps < due && taken < SNOW_VIEW_MAX_CATCH_UP)
+    while (snow->steps < due && taken < catch_up)
     {
         snow_view_step(snow);
         taken++;
@@ -269,11 +317,13 @@ void snow_view_draw(const SnowView* snow, float x, float y, int32_t scale)
         draw_sleigh(draw_list, snow, x, y, block);
     }
     const RetroUiPalette* palette = retro_ui_palette();
-    static const uint32_t SHADE_PERCENT[SNOW_VIEW_SHADES] = {0, 20, 40, 60};
+    // Evenly from the text color to shade_spread % toward the panel's (0, 20, 40, 60 by default).
+    uint32_t spread = static_cast<uint32_t>(snow->params.shade_spread);
     uint32_t colors[SNOW_VIEW_SHADES] = {};
     for (uint32_t i = 0; i < SNOW_VIEW_SHADES; i++)
     {
-        colors[i] = retro_ui_color_imgui(mix(palette->text, palette->panel_face, SHADE_PERCENT[i]));
+        uint32_t percent = spread * i / (SNOW_VIEW_SHADES - 1);
+        colors[i] = retro_ui_color_imgui(mix(palette->text, palette->panel_face, percent));
     }
     for (uint32_t i = 0; i < snow->count; i++)
     {
