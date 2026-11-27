@@ -30,20 +30,33 @@
 constexpr uint32_t SNOW_VIEW_MAX_FLAKES = 4096;
 constexpr uint32_t SNOW_VIEW_PIXELS_PER_FLAKE = 290;   // ZSNES: 200 flakes on 256 x 224
 constexpr uint32_t SNOW_VIEW_STEP_HZ = 36;
-constexpr uint32_t SNOW_VIEW_MAX_CATCH_UP = 9;         // steps at most per update (a quarter second)
+constexpr uint32_t SNOW_VIEW_MAX_CATCH_UP = 9;         // steps at most per update at 36 Hz (a quarter second)
 constexpr uint32_t SNOW_VIEW_SHADES = 4;
 constexpr int32_t  SNOW_VIEW_SLEIGH_ROW = 60;          // retro pixels from the area's top
 constexpr int32_t  SNOW_VIEW_SLEIGH_WIDTH = 32;
 constexpr int32_t  SNOW_VIEW_SLEIGH_HEIGHT = 10;
 constexpr uint32_t SNOW_VIEW_SLEIGH_EVERY = 60 * SNOW_VIEW_STEP_HZ;   // a crossing starts once a minute
 
-// One flake. Positions and speeds in 1/256 of a retro pixel.
+// The knobs (MENU > DEBUG tunes them live; frontends keep the defaults, the
+// look described above). Speeds in retro pixels per step.
+struct SnowParams
+{
+    int32_t pixels_per_flake = static_cast<int32_t>(SNOW_VIEW_PIXELS_PER_FLAKE);   // density: area / this
+    int32_t step_hz = static_cast<int32_t>(SNOW_VIEW_STEP_HZ);
+    float   fall = 1.0f;          // every flake falls this much a step...
+    float   fall_extra = 1.0f;    // ...plus 0..this (its own share)
+    float   drift = 1.0f;         // right 0..this a step (its own share); never left
+    int32_t shade_spread = 60;    // the palest shade, % from the text color toward the panel's
+};
+
+// One flake. Positions in 1/256 of a retro pixel; vx, vy are the flake's own
+// share (0..255) of SnowParams' drift and fall_extra.
 struct SnowFlake
 {
     int32_t x = 0;
     int32_t y = 0;
-    int32_t vx = 0;        // 0..255: right per step
-    int32_t vy = 0;        // 0..255: down per step, after the whole pixel every flake falls
+    int32_t vx = 0;        // 0..255 of drift
+    int32_t vy = 0;        // 0..255 of fall_extra
     uint8_t shade = 0;     // 0..3: 0 is the text color
     bool    shown = false; // wrapped through the top once
 };
@@ -51,6 +64,7 @@ struct SnowFlake
 struct SnowView
 {
     SnowFlake flakes[SNOW_VIEW_MAX_FLAKES];
+    SnowParams params;
     uint32_t  count = 0;            // flakes in use for this area
     int32_t   width = 0;            // the area, retro pixels (0: not set yet)
     int32_t   height = 0;
@@ -80,8 +94,13 @@ void snow_view_restart(SnowView* snow);
 // moves the flakes in proportion, so a resize doesn't bunch them up.
 void snow_view_set_area(SnowView* snow, int32_t width, int32_t height);
 
-// Steps the snow up to `now_ms` (36 a second, at most SNOW_VIEW_MAX_CATCH_UP
-// at once: a long stall skips time rather than racing). Returns the steps taken.
+// New knobs (values out of range are clamped). The density applies at once,
+// the speeds from the next step; the clock restarts if the rate changed.
+void snow_view_set_params(SnowView* snow, const SnowParams* params);
+
+// Steps the snow up to `now_ms` (step_hz a second, at most a quarter second's
+// worth at once: a long stall skips time rather than racing). Returns the
+// steps taken.
 uint32_t snow_view_update(SnowView* snow, uint64_t now_ms);
 
 // One 36 Hz step (snow_view_update calls it; tests call it directly).

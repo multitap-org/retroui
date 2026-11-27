@@ -122,6 +122,39 @@ static void test_clock()
     check(snow_view_update(&g_snow, 1000 + 2000 + 1000 / 36 + 1) == 1, "then on at 36 Hz from there");
 }
 
+static void test_params()
+{
+    snow_view_start(&g_snow, 8);
+    snow_view_set_area(&g_snow, 640, 360);
+    SnowParams params = {};
+    params.pixels_per_flake = 580;
+    params.fall = 2.0f;
+    params.fall_extra = 0.0f;
+    params.drift = 0.0f;
+    snow_view_set_params(&g_snow, &params);
+    check(g_snow.count == 397, "half the density: twice the pixels per flake");
+    SnowFlake* flake = &g_snow.flakes[0];
+    flake->x = 10 * 256;
+    flake->y = 10 * 256;
+    flake->vx = 255;
+    flake->vy = 255;
+    snow_view_step(&g_snow);
+    check(flake->x == 10 * 256 && flake->y == 12 * 256, "no drift, 2 px a step and no extra");
+    params.drift = 2.0f;
+    snow_view_set_params(&g_snow, &params);
+    flake->vx = 128;
+    snow_view_step(&g_snow);
+    check(flake->x == 11 * 256, "half its share of 2 px of drift");
+    params.pixels_per_flake = 0;
+    params.step_hz = 1000;
+    snow_view_set_params(&g_snow, &params);
+    check(g_snow.params.pixels_per_flake == 16 && g_snow.params.step_hz == 240, "out-of-range knobs are clamped");
+    check(!g_snow.started, "a new rate restarts the clock");
+    SnowParams defaults = {};
+    snow_view_set_params(&g_snow, &defaults);
+    check(g_snow.count == 794, "back to the defaults");
+}
+
 static void test_season()
 {
     check(!snow_view_in_season(12, 23), "not on December 23");
@@ -177,6 +210,7 @@ int main()
     test_step_and_wrap();
     test_starts_from_the_sky();
     test_clock();
+    test_params();
     test_season();
     test_sleigh();
     if (g_failures != 0)
