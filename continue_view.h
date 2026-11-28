@@ -5,15 +5,23 @@
 //
 //   panel (the desktop): part of the empty screen, centered under the menu
 //   bar, behind every window and menu; no title bar, no X, never focused.
+//   Side by side in a square or wide area, stacked (the picture on top, the
+//   same width) in a tall one; the shelf of recent games under it, never
+//   more than four tiles at once (the rest on pages); in a short window,
+//   a text list of them beside the card instead (continue_view_panel_layout).
 //   +--------------------------------------------------------------+
 //   | +----------------------+  SUPER MARIO WORLD                   |
-//   | |                      |  SNES9X · SUPER NINTENDO             |
-//   | |  the picture, at the |  PLAYED TODAY AT 21:40               |
-//   | |  aspect it was       |  (why it says START, if it does)     |
-//   | |  played at           |                                      |
-//   | |                      |  [            RESUME              ]  |
-//   | +----------------------+  A / ENTER: RESUME · OTHER GAMES ... |
+//   | |  the picture, at the |  SNES9X                              |
+//   | |  aspect it was       |  PLAYED TODAY AT 21:40               |
+//   | |  played at, in a     |  (why it says RESTART, if it does)   |
+//   | |  square              |  [ RESUME ] [ RESTART ]              |
+//   | +----------------------+  A / ENTER: RESUME · DOWN: OTHER ... |
+//   | RECENT                                                   < 1/3 > |
+//   | ------------------------------------------------------------ |
+//   | [tile] [tile] [tile] [tile]   (name, then "core · when")     |
 //   +--------------------------------------------------------------+
+//   A tile doesn't start its game: it goes into the card (select, then
+//   RESUME or RESTART).
 //
 //   card (the phone's HOME upright): full width, the picture across the top
 //   edge to edge (any size, not whole pixels; never taller than the card is
@@ -43,11 +51,43 @@ enum class ContinueViewButton
     resume,
 };
 
-// The picture's room on the panel, in retro pixels.
+// The card's picture room on the panel, in retro pixels: a square, so a
+// vertical game (3:4) is 120 x 160 and a 4:3 one 160 x 120.
 constexpr float CONTINUE_VIEW_PICTURE_WIDTH  = 160.0f;
-constexpr float CONTINUE_VIEW_PICTURE_HEIGHT = 108.0f;
+constexpr float CONTINUE_VIEW_PICTURE_HEIGHT = 160.0f;
 // The text column beside it.
 constexpr float CONTINUE_VIEW_INFO_WIDTH = 150.0f;
+// The panel's width (the same side by side and stacked), and the shelf's
+// tiles: 4 across its inside, a 4:3 box each.
+constexpr float CONTINUE_VIEW_PANEL_WIDTH = 329.0f;
+constexpr float CONTINUE_VIEW_STACKED_PICTURE_HEIGHT = 240.0f;   // the stacked card's picture, at most this tall
+constexpr uint32_t CONTINUE_VIEW_TILES_MAX = 4;                  // shown at once, in every window shape
+constexpr float CONTINUE_VIEW_TILE_WIDTH  = 77.0f;
+constexpr float CONTINUE_VIEW_TILE_HEIGHT = 58.0f;
+
+// One game of the shelf.
+struct ContinueViewTile
+{
+    const char* game = "";   // its name (clipped to the tile)
+    const char* line = "";   // "SNES9X · TODAY" (clipped)
+    const char* core = "";   // the core's name: on the dark box of a game without a picture
+    uint64_t    texture = 0; // 0: no picture
+    float       u_max = 1.0f;
+    float       v_max = 1.0f;
+    uint32_t    aspect_width = 0;   // the shape its picture is drawn at (0: 4:3)
+    uint32_t    aspect_height = 0;
+};
+
+// The recent games under the card: one page of at most four tiles, and where
+// the keyboard / controller is.
+struct ContinueViewShelf
+{
+    const char*      header = "";   // "RECENT"
+    ContinueViewTile tiles[CONTINUE_VIEW_TILES_MAX];
+    uint32_t         tile_count = 0;   // 0: no shelf
+    uint32_t         page = 0;         // shown, from 0
+    uint32_t         page_count = 0;   // more than 1: the page indicator and its arrows show
+};
 
 struct ContinueViewCard
 {
@@ -69,9 +109,16 @@ struct ContinueViewCard
     uint32_t aspect_width = 0;  // the shape to draw it at (0: 4:3)
     uint32_t aspect_height = 0;
 
-    // Nothing covers it (desktop): its first button is highlighted and takes
+    // Nothing covers it (desktop): its focused button is highlighted and takes
     // clicks. Covered by a menu or a window it shows, but takes nothing.
     bool active = true;
+
+    // The desktop panel's shelf and where the keys are: on a button (the
+    // second when `focus_second`) or on a tile of the page (`focus_tile` >= 0,
+    // white border, no button highlighted).
+    ContinueViewShelf shelf;
+    int32_t           focus_tile = -1;
+    bool              focus_second = false;
 
     // The phone's card: its picture no taller than this (retro pixels; 0:
     // as tall as the card's width makes it, at most square), so the card
@@ -85,14 +132,50 @@ struct ContinueViewCard
 void continue_view_picture_size(uint32_t aspect_width, uint32_t aspect_height, float max_width, float max_height,
                                 float* width, float* height);
 
-// The picture's size on the panel at `scale`, in window pixels: what the
-// frontend scales the picture up for.
-void continue_view_panel_picture_size(const ContinueViewCard* card, int32_t scale, float* width, float* height);
+// How the panel is laid out in a window (the one decision, tested):
+//   side_shelf:    the card side by side, the shelf of pictures under it
+//   side_list:     a window under 720 px tall (the tiles would be tiny at 1
+//                  px per retro pixel) that is wide enough for the card and
+//                  a column beside it: the other games as a text list at
+//                  the card's right instead, 4 rows, paged
+//   stacked_shelf: a window taller than wide: the picture on top, the shelf
+//                  under it
+enum class ContinueViewLayout
+{
+    side_shelf,
+    side_list,
+    stacked_shelf,
+};
+// The list's column, and the window width (retro pixels) the card plus the
+// list need.
+constexpr float CONTINUE_VIEW_LIST_WIDTH     = 150.0f;
+constexpr float CONTINUE_VIEW_LIST_MIN_WIDTH = 490.0f;
+constexpr float CONTINUE_VIEW_LIST_MAX_HEIGHT = 720.0f;   // window pixels: the list is for smaller windows
+ContinueViewLayout continue_view_panel_layout(float screen_width, float screen_height, int32_t scale);
 
-// The desktop panel, centered in the screen below `top` (window pixels: the
-// menu bar's height). Returns the button pressed (only while active).
-ContinueViewButton continue_view_draw_panel(RetroUiFont* pixel_font, int32_t scale, const ContinueViewCard* card,
-                                            float top);
+// The card's picture size on the panel at `scale`, in window pixels: what the
+// frontend scales the picture up for (drawn smaller only when the stacked
+// panel doesn't fit the height).
+void continue_view_panel_picture_size(const ContinueViewCard* card, int32_t scale, bool stacked, float* width,
+                                      float* height);
+
+// A tile's picture at `scale`, in window pixels: fitted in the tile's 4:3 box.
+void continue_view_tile_picture_size(uint32_t aspect_width, uint32_t aspect_height, int32_t scale, float* width,
+                                     float* height);
+
+// What the panel returned this frame (only while active).
+struct ContinueViewAction
+{
+    ContinueViewButton pressed = ContinueViewButton::none;
+    int32_t            tile_chosen = -1;   // a click on this tile of the page
+    int32_t            page_delta = 0;     // a click on the page indicator's arrows: -1 / +1
+};
+
+// The desktop panel in the window (`screen_width` x `screen_height`, window
+// pixels) below `top` (the menu bar's height), laid out as
+// continue_view_panel_layout says, centered in what is left of the screen.
+ContinueViewAction continue_view_draw_panel(RetroUiFont* pixel_font, int32_t scale, const ContinueViewCard* card,
+                                            float top, float screen_width, float screen_height);
 
 // The phone's card at (x, y), `width` wide (retro pixels of `ui`), on a
 // touch screen. Its height goes to `height`. Returns the button tapped.

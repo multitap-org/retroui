@@ -96,6 +96,87 @@ int main()
     check_cover(0, 0, 300.0f, 201.0f, 268.0f, 201.0f, "unknown: 4:3");
     check_size(4, 3, 0.5f, 0.5f, 1.0f, 1.0f, "never below one pixel");
 
+    // The card's picture room is a 160 x 160 square on the panel.
+    check_size(4, 3, 160.0f, 160.0f, 160.0f, 120.0f, "panel: 4:3 in the square");
+    check_size(3, 4, 160.0f, 160.0f, 120.0f, 160.0f, "panel: a vertical game in the square");
+    {
+        ContinueViewCard card = {};
+        card.aspect_width = 3;
+        card.aspect_height = 4;
+        float width = 0.0f;
+        float height = 0.0f;
+        continue_view_panel_picture_size(&card, 2, false, &width, &height);
+        if (width != 240.0f || height != 320.0f)
+        {
+            std::printf("FAILED: side by side picture at x2: %.0f x %.0f\n", static_cast<double>(width),
+                        static_cast<double>(height));
+            g_failures++;
+        }
+        card.aspect_width = 4;
+        card.aspect_height = 3;
+        continue_view_panel_picture_size(&card, 1, true, &width, &height);   // the panel's inside: 317 wide, 240 tall at most
+        if (width != 317.0f || height != 238.0f)
+        {
+            std::printf("FAILED: stacked 4:3 picture: %.0f x %.0f\n", static_cast<double>(width),
+                        static_cast<double>(height));
+            g_failures++;
+        }
+        card.aspect_width = 3;
+        card.aspect_height = 4;
+        continue_view_panel_picture_size(&card, 1, true, &width, &height);
+        if (width != 180.0f || height != 240.0f)
+        {
+            std::printf("FAILED: stacked vertical picture: %.0f x %.0f\n", static_cast<double>(width),
+                        static_cast<double>(height));
+            g_failures++;
+        }
+        continue_view_tile_picture_size(3, 4, 1, &width, &height);
+        if (width != 44.0f || height != 58.0f)
+        {
+            std::printf("FAILED: tile vertical picture: %.0f x %.0f\n", static_cast<double>(width),
+                        static_cast<double>(height));
+            g_failures++;
+        }
+        continue_view_tile_picture_size(4, 3, 2, &width, &height);
+        if (width != 154.0f || height != 116.0f)
+        {
+            std::printf("FAILED: tile 4:3 picture at x2: %.0f x %.0f\n", static_cast<double>(width),
+                        static_cast<double>(height));
+            g_failures++;
+        }
+    }
+
+    // The layout decision.
+    struct LayoutCase
+    {
+        float screen_width;
+        float screen_height;
+        int32_t scale;
+        ContinueViewLayout expected;
+        const char* what;
+    };
+    const LayoutCase layouts[] = {
+        {1280.0f, 720.0f, 2, ContinueViewLayout::side_shelf, "720p at x2: shelf under the card"},
+        {1920.0f, 1080.0f, 3, ContinueViewLayout::side_shelf, "1080p: shelf"},
+        {1280.0f, 719.0f, 1, ContinueViewLayout::side_list, "under 720 tall, wide: the list at the right"},
+        {800.0f, 600.0f, 1, ContinueViewLayout::side_list, "800x600: the list"},
+        {489.0f, 400.0f, 1, ContinueViewLayout::side_shelf, "not wide enough for the list: shelf"},
+        {490.0f, 400.0f, 1, ContinueViewLayout::side_list, "just wide enough: list"},
+        {600.0f, 900.0f, 1, ContinueViewLayout::stacked_shelf, "taller than wide: stacked"},
+        {400.0f, 500.0f, 1, ContinueViewLayout::stacked_shelf, "a small tall window: stacked, never the list"},
+        {800.0f, 600.0f, 2, ContinueViewLayout::side_shelf, "scale 2 (the user's choice): shelf"},
+        {720.0f, 720.0f, 1, ContinueViewLayout::side_shelf, "square, 720 tall: shelf"},
+    };
+    for (size_t i = 0; i < sizeof(layouts) / sizeof(layouts[0]); i++)
+    {
+        const LayoutCase* c = &layouts[i];
+        if (continue_view_panel_layout(c->screen_width, c->screen_height, c->scale) != c->expected)
+        {
+            std::printf("FAILED: layout: %s\n", c->what);
+            g_failures++;
+        }
+    }
+
     if (g_failures == 0)
     {
         std::printf("continue view: all checks passed\n");
