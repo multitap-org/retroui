@@ -5,16 +5,17 @@
 //
 //   panel (the desktop): part of the empty screen, centered under the menu
 //   bar, behind every window and menu; no title bar, no X, never focused.
-//   Side by side in a square or wide area, stacked (the picture on top, the
-//   same width) in a tall one; the shelf of recent games under it, never
-//   more than four tiles at once (the rest on pages); in a short window,
-//   a text list of them beside the card instead (continue_view_panel_layout).
+//   About 90% of the room, its parts growing with it. Side by side in a
+//   square or wide area, stacked (the picture on top, the same width) in a
+//   tall one; the shelf of recent games under it, never more than four
+//   tiles at once (the rest on pages); in a short window, a list of them
+//   beside the card instead (continue_view_panel_layout).
 //   +--------------------------------------------------------------+
-//   | +----------------------+  SUPER MARIO WORLD                   |
+//   | +----------------------+  SUPER MARIO WORLD (double size)     |
 //   | |  the picture, at the |  SNES9X                              |
 //   | |  aspect it was       |  PLAYED TODAY AT 21:40               |
 //   | |  played at, in a     |  (why it says RESTART, if it does)   |
-//   | |  square              |  [ RESUME ] [ RESTART ]              |
+//   | |  4:3 box             |  [   RESUME   ] [ RESTART ]          |
 //   | +----------------------+  A / ENTER: RESUME · DOWN: OTHER ... |
 //   | RECENT                                                   < 1/3 > |
 //   | ------------------------------------------------------------ |
@@ -51,19 +52,7 @@ enum class ContinueViewButton
     resume,
 };
 
-// The card's picture room on the panel, in retro pixels: a square, so a
-// vertical game (3:4) is 120 x 160 and a 4:3 one 160 x 120.
-constexpr float CONTINUE_VIEW_PICTURE_WIDTH  = 160.0f;
-constexpr float CONTINUE_VIEW_PICTURE_HEIGHT = 160.0f;
-// The text column beside it.
-constexpr float CONTINUE_VIEW_INFO_WIDTH = 150.0f;
-// The panel's width (the same side by side and stacked), and the shelf's
-// tiles: 4 across its inside, a 4:3 box each.
-constexpr float CONTINUE_VIEW_PANEL_WIDTH = 329.0f;
-constexpr float CONTINUE_VIEW_STACKED_PICTURE_HEIGHT = 240.0f;   // the stacked card's picture, at most this tall
-constexpr uint32_t CONTINUE_VIEW_TILES_MAX = 4;                  // shown at once, in every window shape
-constexpr float CONTINUE_VIEW_TILE_WIDTH  = 77.0f;
-constexpr float CONTINUE_VIEW_TILE_HEIGHT = 58.0f;
+constexpr uint32_t CONTINUE_VIEW_TILES_MAX = 4;   // shown at once, in every window shape
 
 // One game of the shelf.
 struct ContinueViewTile
@@ -136,32 +125,54 @@ void continue_view_picture_size(uint32_t aspect_width, uint32_t aspect_height, f
 //   side_shelf:    the card side by side, the shelf of pictures under it
 //   side_list:     a window under 720 px tall (the tiles would be tiny at 1
 //                  px per retro pixel) that is wide enough for the card and
-//                  a column beside it: the other games as a text list at
-//                  the card's right instead, 4 rows, paged
-//   stacked_shelf: a window taller than wide: the picture on top, the shelf
-//                  under it
+//                  a column beside it: the picture with the words under it,
+//                  the other games as a list at its right (a small picture
+//                  per row), 4 rows, paged
+//   stacked_shelf: a window taller than wide: the picture on top, the words,
+//                  the shelf under it
 enum class ContinueViewLayout
 {
     side_shelf,
     side_list,
     stacked_shelf,
 };
-// The list's column, and the window width (retro pixels) the card plus the
-// list need.
-constexpr float CONTINUE_VIEW_LIST_WIDTH     = 150.0f;
+// The window width (retro pixels) the card plus the list need.
 constexpr float CONTINUE_VIEW_LIST_MIN_WIDTH = 490.0f;
 constexpr float CONTINUE_VIEW_LIST_MAX_HEIGHT = 720.0f;   // window pixels: the list is for smaller windows
 ContinueViewLayout continue_view_panel_layout(float screen_width, float screen_height, int32_t scale);
 
-// The card's picture size on the panel at `scale`, in window pixels: what the
-// frontend scales the picture up for (drawn smaller only when the stacked
-// panel doesn't fit the height).
-void continue_view_panel_picture_size(const ContinueViewCard* card, int32_t scale, bool stacked, float* width,
-                                      float* height);
+// Every size of the panel, in window pixels, from the room it has (Andrés,
+// 2026-11-28, "fill the screen"): about 90% of the screen under the menu
+// bar, the picture, the tiles and the rows growing with it. The one place
+// that decides sizes: the drawing and the frontend's picture scaling both
+// read it. Whole retro pixels times the scale.
+struct ContinueViewPanelGeometry
+{
+    ContinueViewLayout layout = ContinueViewLayout::side_shelf;
+    float block = 1.0f;            // window pixels per retro pixel
+    float x = 0.0f;                // the panel
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    float picture_width = 0.0f;    // the card's picture box, a 4:3 box (stacked: the
+    float picture_height = 0.0f;   // panel's inside wide); the picture fits in it
+    float card_height = 0.0f;      // the card (picture and words), padding left out
+    float words_width = 0.0f;      // side_shelf: the words' column beside the picture
+                                   // (otherwise under it, the picture's width)
+    float list_width = 0.0f;       // side_list: the list's column
+    float row_height = 0.0f;       // side_list: one row of the list
+    float tile_width = 0.0f;       // a shelf tile's or a list row's picture box
+    float tile_height = 0.0f;      // (0 x 0: no other games)
+};
+// `top` the menu bar's height, the screen the whole window; `shelf` whether
+// there are other games to show.
+void continue_view_panel_geometry(int32_t scale, bool shelf, float top, float screen_width, float screen_height,
+                                  ContinueViewPanelGeometry* geometry);
 
-// A tile's picture at `scale`, in window pixels: fitted in the tile's 4:3 box.
-void continue_view_tile_picture_size(uint32_t aspect_width, uint32_t aspect_height, int32_t scale, float* width,
-                                     float* height);
+// The card's picture there at its aspect, in window pixels: what the frontend
+// scales the picture up for.
+void continue_view_panel_picture_size(const ContinueViewCard* card, const ContinueViewPanelGeometry* geometry,
+                                      float* width, float* height);
 
 // What the panel returned this frame (only while active).
 struct ContinueViewAction
@@ -172,8 +183,8 @@ struct ContinueViewAction
 };
 
 // The desktop panel in the window (`screen_width` x `screen_height`, window
-// pixels) below `top` (the menu bar's height), laid out as
-// continue_view_panel_layout says, centered in what is left of the screen.
+// pixels, the whole window) below `top` (the menu bar's height), sized and
+// placed by continue_view_panel_geometry, centered in what is left.
 ContinueViewAction continue_view_draw_panel(RetroUiFont* pixel_font, int32_t scale, const ContinueViewCard* card,
                                             float top, float screen_width, float screen_height);
 

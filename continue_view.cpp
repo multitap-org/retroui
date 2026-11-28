@@ -12,12 +12,38 @@
 #include "retro_ui.h"
 #include "touch_ui.h"
 
-// The panel, in retro pixels.
-constexpr float PANEL_PADDING = 6.0f;
-constexpr float PANEL_GAP     = 7.0f;   // between the picture and the text
-constexpr float LINE_GAP      = 3.0f;   // between lines of text
-constexpr float BUTTON_GAP    = 3.0f;   // above the buttons, and between two
-constexpr float BUTTON_HEIGHT = 17.0f;  // a big button (the mockup's)
+// The panel, in retro pixels (Andrés, 2026-11-28: "fill the screen", mockup
+// continue-recents c736fe8). Only margins, gaps and text lines are fixed;
+// the picture, the tiles and the rows take what the room leaves.
+constexpr float PANEL_SHARE      = 0.9f;    // of the room under the menu bar, both ways
+constexpr float PANEL_MAX_ASPECT = 1.85f;   // side by side, never wider than this times its height
+constexpr float PANEL_PADDING    = 8.0f;
+constexpr float PANEL_GAP        = 10.0f;   // between the picture and the words / the list
+constexpr float SECTION_GAP      = 8.0f;    // between the card and the shelf
+constexpr float LINE_GAP         = 3.0f;    // between lines of text
+constexpr float TEXT_LINE        = 8.0f;    // a line of the pixel font (PIXEL_FONT_IMGUI_UNIT at 1x)
+constexpr float NAME_LINE        = 16.0f;   // the game's name, at double size
+constexpr float NAME_LINES_SIDE  = 2.0f;    // side by side the name wraps to two lines; under the picture, one
+constexpr float BUTTON_GAP       = 4.0f;    // above the buttons, and between two
+constexpr float BUTTON_HEIGHT    = 20.0f;
+constexpr float TILE_GAP         = 8.0f;    // between two tiles of the shelf
+constexpr float WORDS_MIN_WIDTH  = 170.0f;  // side by side: the words' column at least
+constexpr float LIST_MIN_WIDTH   = 200.0f;  // the list's column: at least...
+constexpr float LIST_MAX_WIDTH   = 360.0f;  // ...and at most
+constexpr float ROW_GAP          = 5.0f;    // between two rows of the list
+constexpr float ROW_PADDING      = 4.0f;
+constexpr float ROW_PICTURE_SHARE = 0.3f;   // a row's picture: at most this share of the list's width
+// The shelf's header: its words, the line under it, the space under that.
+constexpr float SHELF_HEADER = TEXT_LINE + LINE_GAP + 1.0f + 4.0f;
+// Under a tile: its name, then "core · when".
+constexpr float TILE_CAPTION = 3.0f + TEXT_LINE + 2.0f + TEXT_LINE;
+// The words under the picture when they don't sit beside it (stacked, list):
+// the name, "core · when", room for a reason of two lines, the buttons, the
+// hint. Always reserved, so the picture doesn't change size with the words.
+constexpr float COLUMN_WORDS = 6.0f + NAME_LINE + LINE_GAP + TEXT_LINE + LINE_GAP + 2.0f * TEXT_LINE + LINE_GAP +
+                               BUTTON_GAP + BUTTON_HEIGHT + LINE_GAP + TEXT_LINE;
+// The buttons and the hint at the bottom of the card's words.
+constexpr float BUTTONS_AND_HINT = BUTTON_HEIGHT + LINE_GAP + TEXT_LINE;
 
 // The phone's card, in retro pixels of the touch UI.
 constexpr float CARD_PADDING        = 6.0f;
@@ -74,27 +100,138 @@ ContinueViewLayout continue_view_panel_layout(float screen_width, float screen_h
     return ContinueViewLayout::side_shelf;
 }
 
-void continue_view_panel_picture_size(const ContinueViewCard* card, int32_t scale, bool stacked, float* width,
-                                      float* height)
+// The biggest 4:3 box in `max_width` x `max_height` (whole retro pixels).
+static void box_fit(float max_width, float max_height, float* width, float* height)
 {
-    float block = static_cast<float>(scale);
-    float room_width = CONTINUE_VIEW_PICTURE_WIDTH;
-    float room_height = CONTINUE_VIEW_PICTURE_HEIGHT;
-    if (stacked)
-    {
-        room_width = CONTINUE_VIEW_PANEL_WIDTH - 2.0f * PANEL_PADDING;
-        room_height = CONTINUE_VIEW_STACKED_PICTURE_HEIGHT;
-    }
-    continue_view_picture_size(card->aspect_width, card->aspect_height, room_width * block, room_height * block, width,
-                               height);
+    float fit_height = std::floor(max_width * 3.0f / 4.0f);
+    fit_height = fit_height < max_height ? fit_height : std::floor(max_height);
+    fit_height = fit_height > 1.0f ? fit_height : 1.0f;
+    *height = fit_height;
+    *width = std::floor(fit_height * 4.0f / 3.0f);
 }
 
-void continue_view_tile_picture_size(uint32_t aspect_width, uint32_t aspect_height, int32_t scale, float* width,
-                                     float* height)
+static float at_least(float value, float least)
 {
-    float block = static_cast<float>(scale);
-    continue_view_picture_size(aspect_width, aspect_height, CONTINUE_VIEW_TILE_WIDTH * block,
-                               CONTINUE_VIEW_TILE_HEIGHT * block, width, height);
+    return value > least ? value : least;
+}
+
+void continue_view_panel_geometry(int32_t scale, bool shelf, float top, float screen_width, float screen_height,
+                                  ContinueViewPanelGeometry* geometry)
+{
+    ContinueViewPanelGeometry g;
+    int32_t whole_scale = scale > 0 ? scale : 1;
+    float block = static_cast<float>(whole_scale);
+    g.block = block;
+    g.layout = continue_view_panel_layout(screen_width, screen_height, whole_scale);
+    // All in retro pixels from here; window pixels at the end.
+    float room_width = std::floor(screen_width / block);
+    float room_height = std::floor((screen_height - top) / block);
+    float width = std::floor(room_width * PANEL_SHARE);
+    float height = std::floor(room_height * PANEL_SHARE);
+    float picture_width = 1.0f;
+    float picture_height = 1.0f;
+    float card_height = 0.0f;
+    float words_width = 0.0f;
+    float list_width = 0.0f;
+    float row_height = 0.0f;
+    float tile_width = 0.0f;
+    float tile_height = 0.0f;
+    float shelf_height = 0.0f;   // the gap above it included
+    if (g.layout == ContinueViewLayout::side_shelf)
+    {
+        width = width < std::floor(height * PANEL_MAX_ASPECT) ? width : std::floor(height * PANEL_MAX_ASPECT);
+        float inner_width = at_least(width - 2.0f * PANEL_PADDING, 1.0f);
+        float inner_height = at_least(height - 2.0f * PANEL_PADDING, 1.0f);
+        card_height = inner_height;
+        if (shelf)
+        {
+            // Four tiles across, 4:3; never more than half of what the card
+            // and the tiles share (a wide, short window).
+            tile_width = at_least(std::floor((inner_width - 3.0f * TILE_GAP) / 4.0f), 4.0f);
+            tile_height = std::floor(tile_width * 3.0f / 4.0f);
+            float most = std::floor((inner_height - SECTION_GAP - SHELF_HEADER - TILE_CAPTION) / 2.0f);
+            most = at_least(most, 3.0f);
+            if (tile_height > most)
+            {
+                tile_height = most;
+                tile_width = std::floor(tile_height * 4.0f / 3.0f);
+            }
+            shelf_height = SECTION_GAP + SHELF_HEADER + tile_height + TILE_CAPTION;
+            card_height = at_least(inner_height - shelf_height, 1.0f);
+        }
+        box_fit(at_least(inner_width - PANEL_GAP - WORDS_MIN_WIDTH, 1.0f), card_height, &picture_width,
+                &picture_height);
+        card_height = picture_height;
+        words_width = at_least(inner_width - picture_width - PANEL_GAP, 1.0f);
+        height = 2.0f * PANEL_PADDING + card_height + shelf_height;
+    }
+    else if (g.layout == ContinueViewLayout::side_list)
+    {
+        float inner_width = at_least(width - 2.0f * PANEL_PADDING, 1.0f);
+        float inner_height = at_least(height - 2.0f * PANEL_PADDING, 1.0f);
+        box_fit(at_least(inner_width - PANEL_GAP - LIST_MIN_WIDTH, 1.0f), at_least(inner_height - COLUMN_WORDS, 1.0f),
+                &picture_width, &picture_height);
+        card_height = picture_height + COLUMN_WORDS;
+        words_width = picture_width;
+        list_width = at_least(inner_width - picture_width - PANEL_GAP, 1.0f);
+        list_width = list_width < LIST_MAX_WIDTH ? list_width : LIST_MAX_WIDTH;
+        // Four rows fill the column's height; each one's picture as tall as
+        // the row lets it, no wider than a share of the list.
+        row_height = at_least(std::floor((card_height - SHELF_HEADER - 3.0f * ROW_GAP) / 4.0f), TEXT_LINE * 2.0f);
+        if (shelf)
+        {
+            tile_height = at_least(row_height - 2.0f * ROW_PADDING, 1.0f);
+            float most = std::floor(list_width * ROW_PICTURE_SHARE * 3.0f / 4.0f);
+            tile_height = tile_height < most ? tile_height : at_least(most, 1.0f);
+            tile_width = std::floor(tile_height * 4.0f / 3.0f);
+        }
+        width = 2.0f * PANEL_PADDING + picture_width + PANEL_GAP + list_width;
+        height = 2.0f * PANEL_PADDING + card_height;
+    }
+    else
+    {
+        float inner_width = at_least(width - 2.0f * PANEL_PADDING, 1.0f);
+        float room = height - 2.0f * PANEL_PADDING - COLUMN_WORDS;
+        if (shelf)
+        {
+            tile_width = at_least(std::floor((inner_width - 3.0f * TILE_GAP) / 4.0f), 4.0f);
+            tile_height = std::floor(tile_width * 3.0f / 4.0f);
+            shelf_height = SECTION_GAP + SHELF_HEADER + tile_height + TILE_CAPTION;
+            room -= shelf_height;
+        }
+        // The picture across the inside, as tall as 4:3 makes it or as the
+        // room lets it (never under a quarter of its width).
+        picture_width = inner_width;
+        picture_height = std::floor(inner_width * 3.0f / 4.0f);
+        float least = std::floor(inner_width / 4.0f);
+        room = at_least(room, least);
+        picture_height = at_least(picture_height < room ? picture_height : std::floor(room), 1.0f);
+        card_height = picture_height + COLUMN_WORDS;
+        words_width = picture_width;
+        height = 2.0f * PANEL_PADDING + card_height + shelf_height;
+    }
+    g.width = width * block;
+    g.height = height * block;
+    g.picture_width = picture_width * block;
+    g.picture_height = picture_height * block;
+    g.card_height = card_height * block;
+    g.words_width = words_width * block;
+    g.list_width = list_width * block;
+    g.row_height = row_height * block;
+    g.tile_width = tile_width * block;
+    g.tile_height = tile_height * block;
+    float area_height = screen_height - top;
+    g.x = std::floor((screen_width - g.width) * 0.5f);
+    g.y = std::floor(top + (area_height - g.height) * 0.5f);
+    g.y = g.y > top ? g.y : top;
+    *geometry = g;
+}
+
+void continue_view_panel_picture_size(const ContinueViewCard* card, const ContinueViewPanelGeometry* geometry,
+                                      float* width, float* height)
+{
+    continue_view_picture_size(card->aspect_width, card->aspect_height, geometry->picture_width,
+                               geometry->picture_height, width, height);
 }
 
 // ---------------------------------------------------------------------------
@@ -172,24 +309,7 @@ static bool panel_button(const char* id, const char* label, float x, float y, fl
     return pressed;
 }
 
-// Where everything goes, in window pixels, measured before drawing (the
-// panel is centered, so its height must be known first).
-struct PanelMeasure
-{
-    bool  stacked = false;
-    bool  hint = true;           // dropped first when the panel doesn't fit
-    float picture_width = 0.0f;
-    float picture_height = 0.0f;
-    float column = 0.0f;         // the width the words and buttons have
-    float words_height = 0.0f;   // the words above the buttons (side by side: in the column)
-    float bottom_height = 0.0f;  // the buttons, and the hint under them
-    float inner_height = 0.0f;   // the card's contents
-    float shelf_height = 0.0f;   // 0 without a shelf
-    float width = 0.0f;
-    float height = 0.0f;
-};
-
-// The "core · when" line of the stacked card.
+// The "core · when" line of the card when its words are under the picture.
 static void core_when_line(char* out, size_t out_size, const ContinueViewCard* card)
 {
     if (card->core[0] != '\0' && card->when[0] != '\0')
@@ -200,69 +320,6 @@ static void core_when_line(char* out, size_t out_size, const ContinueViewCard* c
     {
         std::snprintf(out, out_size, "%s%s", card->core, card->when);
     }
-}
-
-// `picture_room` the tallest picture the stacked card may have (retro pixels).
-static void panel_measure(PanelMeasure* m, const ContinueViewCard* card, int32_t scale, bool stacked, bool list,
-                          bool hint, float picture_room)
-{
-    float block = static_cast<float>(scale);
-    float pad = PANEL_PADDING * block;
-    float line_gap = LINE_GAP * block;
-    float font = ImGui::GetFontSize();
-    float big = PIXEL_FONT_IMGUI_UNIT * (block + 1.0f);   // one whole step up: still sharp
-    float button_height = BUTTON_HEIGHT * block;
-    *m = PanelMeasure{};
-    m->stacked = stacked;
-    m->hint = hint && card->hint[0] != '\0';
-    // The list of the short window is a column at the card's right.
-    m->width = std::floor((CONTINUE_VIEW_PANEL_WIDTH + (list ? CONTINUE_VIEW_LIST_WIDTH : 0.0f)) * block);
-    float inner_width = std::floor(CONTINUE_VIEW_PANEL_WIDTH * block) - 2.0f * pad;
-    if (stacked)
-    {
-        m->column = inner_width;
-        continue_view_picture_size(card->aspect_width, card->aspect_height, inner_width, picture_room * block,
-                                   &m->picture_width, &m->picture_height);
-        m->words_height = wrapped_height(big, m->column, card->game) + line_gap + std::ceil(font);
-        if (card->reason[0] != '\0')
-        {
-            m->words_height += line_gap + wrapped_height(font, m->column, card->reason);
-        }
-    }
-    else
-    {
-        m->column = CONTINUE_VIEW_INFO_WIDTH * block;
-        continue_view_panel_picture_size(card, scale, false, &m->picture_width, &m->picture_height);
-        m->words_height = wrapped_height(big, m->column, card->game) + line_gap +
-                          wrapped_height(font, m->column, card->core) + line_gap +
-                          wrapped_height(font, m->column, card->when);
-        if (card->reason[0] != '\0')
-        {
-            m->words_height += line_gap + wrapped_height(font, m->column, card->reason);
-        }
-    }
-    m->bottom_height = BUTTON_GAP * block + button_height;
-    if (m->hint)
-    {
-        m->bottom_height += line_gap + wrapped_height(font, m->column, card->hint);
-    }
-    if (stacked)
-    {
-        m->inner_height = m->picture_height + PANEL_GAP * block + m->words_height + m->bottom_height;
-    }
-    else
-    {
-        m->inner_height = m->words_height + m->bottom_height;
-        m->inner_height = m->inner_height > m->picture_height ? m->inner_height : m->picture_height;
-    }
-    if (card->shelf.tile_count > 0 && !list)
-    {
-        // The header, its line, the tiles (box, name, "core · when").
-        m->shelf_height = std::ceil(font) + line_gap + block + 4.0f * block +
-                          CONTINUE_VIEW_TILE_HEIGHT * block + 3.0f * block + std::ceil(font) + 2.0f * block +
-                          std::ceil(font) + pad;
-    }
-    m->height = std::floor(pad + m->inner_height + pad + m->shelf_height);
 }
 
 // A rectangle of one color, `thickness` wide, around a box.
@@ -346,109 +403,68 @@ static void draw_pager(ImDrawList* draw_list, const ContinueViewShelf* shelf, fl
     }
 }
 
-// The shelf: header with the page indicator, a thin line, the tiles.
+// A tile's picture in its box (a shelf tile or a list row): black, the
+// picture at its aspect; without one, the core's name dim in the middle.
+static void draw_tile_picture(ImDrawList* draw_list, const ImGuiPlatformIO* platform_io, const ContinueViewTile* tile,
+                              float font, float block, float x, float y, float width, float height)
+{
+    float picture_width = 0.0f;
+    float picture_height = 0.0f;
+    continue_view_picture_size(tile->aspect_width, tile->aspect_height, width, height, &picture_width,
+                               &picture_height);
+    draw_picture(draw_list, platform_io, x, y, width, height, picture_width, picture_height, tile->texture,
+                 tile->u_max, tile->v_max);
+    if (tile->texture != 0)
+    {
+        return;
+    }
+    float text_height = std::ceil(font);
+    float room = width - 2.0f * block;
+    ImVec2 size = ImGui::GetFont()->CalcTextSizeA(font, FLT_MAX, 0.0f, tile->core);
+    float text_width = std::ceil(size.x) < room ? std::ceil(size.x) : room;
+    draw_list->PushClipRect(ImVec2(x, y), ImVec2(x + width, y + height), true);
+    draw_clipped(draw_list, font, std::floor(x + (width - text_width) * 0.5f),
+                 std::floor(y + (height - text_height) * 0.5f), room, tile->core,
+                 retro_ui_palette()->text_disabled);
+    draw_list->PopClipRect();
+}
+
+// A header ("RECENT" with the page indicator at its right) and the thin
+// line under it, `width` wide at (x, y). Returns where what follows starts.
+static float draw_header(ImDrawList* draw_list, const ContinueViewShelf* shelf, float font, float block, float x,
+                         float y, float width, ContinueViewAction* action)
+{
+    const RetroUiPalette* palette = retro_ui_palette();
+    draw_list->AddText(ImGui::GetFont(), font, ImVec2(x, y), retro_ui_color_imgui(palette->section), shelf->header);
+    draw_pager(draw_list, shelf, font, block, x + width, y, action);
+    float line_y = y + std::ceil(font) + LINE_GAP * block;
+    draw_list->AddRectFilled(ImVec2(x, line_y), ImVec2(x + width, line_y + block),
+                             retro_ui_color_imgui(palette->button_face));
+    return y + SHELF_HEADER * block;
+}
+
+// The shelf under the card: the header, then the tiles (picture, name,
+// "core · when"), `width` wide at (x, y).
 static void draw_shelf(ImDrawList* draw_list, const ImGuiPlatformIO* platform_io, const ContinueViewCard* card,
-                       float block, float x, float y, float width, ContinueViewAction* action)
+                       const ContinueViewPanelGeometry* g, float x, float y, float width, ContinueViewAction* action)
 {
     const RetroUiPalette* palette = retro_ui_palette();
     const ContinueViewShelf* shelf = &card->shelf;
-    float pad = PANEL_PADDING * block;
-    float line_gap = LINE_GAP * block;
+    float block = g->block;
     float font = ImGui::GetFontSize();
-    float inner_x = x + pad;
-    float inner_width = width - 2.0f * pad;
     float text_height = std::ceil(font);
-
-    draw_list->AddText(ImGui::GetFont(), font, ImVec2(inner_x, y), retro_ui_color_imgui(palette->section),
-                       shelf->header);
-    draw_pager(draw_list, shelf, font, block, inner_x + inner_width, y, action);
-    float line_y = y + text_height + line_gap;
-    draw_list->AddRectFilled(ImVec2(inner_x, line_y), ImVec2(inner_x + inner_width, line_y + block),
-                             retro_ui_color_imgui(palette->button_face));
-
-    float tile_width = CONTINUE_VIEW_TILE_WIDTH * block;
-    float tile_height = CONTINUE_VIEW_TILE_HEIGHT * block;
-    float tile_gap = 3.0f * block;
-    float tile_y = line_y + block + 4.0f * block;
+    float tile_y = draw_header(draw_list, shelf, font, block, x, y, width, action);
+    float tile_width = g->tile_width;
+    float tile_height = g->tile_height;
     for (uint32_t i = 0; i < shelf->tile_count; i++)
     {
         const ContinueViewTile* tile = &shelf->tiles[i];
-        float tile_x = inner_x + static_cast<float>(i) * (tile_width + tile_gap);
-        float picture_width = 0.0f;
-        float picture_height = 0.0f;
-        continue_view_tile_picture_size(tile->aspect_width, tile->aspect_height, static_cast<int32_t>(block),
-                                        &picture_width, &picture_height);
-        draw_picture(draw_list, platform_io, tile_x, tile_y, tile_width, tile_height, picture_width, picture_height,
-                     tile->texture, tile->u_max, tile->v_max);
-        if (tile->texture == 0)
-        {
-            // Nothing to show: the dark box says which core it is.
-            ImVec2 size = ImGui::GetFont()->CalcTextSizeA(font, FLT_MAX, 0.0f, tile->core);
-            float text_width = std::ceil(size.x) < tile_width - 2.0f * block ? std::ceil(size.x) : tile_width - 2.0f * block;
-            draw_list->PushClipRect(ImVec2(tile_x, tile_y), ImVec2(tile_x + tile_width, tile_y + tile_height), true);
-            draw_clipped(draw_list, font, std::floor(tile_x + (tile_width - text_width) * 0.5f),
-                         std::floor(tile_y + (tile_height - text_height) * 0.5f), tile_width - 2.0f * block, tile->core,
-                         palette->text_disabled);
-            draw_list->PopClipRect();
-        }
-        float caption_height = 3.0f * block + text_height + 2.0f * block + text_height;
+        float tile_x = x + static_cast<float>(i) * (tile_width + TILE_GAP * block);
+        draw_tile_picture(draw_list, platform_io, tile, font, block, tile_x, tile_y, tile_width, tile_height);
         char id[16] = {};
         std::snprintf(id, sizeof(id), "tile%u", i);
         bool hovered = false;
-        if (click_area(id, tile_x, tile_y, tile_width, tile_height + caption_height, &hovered) && card->active)
-        {
-            action->tile_chosen = static_cast<int32_t>(i);
-        }
-        bool focused = card->active && card->focus_tile == static_cast<int32_t>(i);
-        if (focused)
-        {
-            draw_frame(draw_list, tile_x, tile_y, tile_width, tile_height, block, 0xFFFFFFFFu);
-        }
-        else if (hovered && card->active)
-        {
-            draw_frame(draw_list, tile_x, tile_y, tile_width, tile_height, block, palette->highlight);
-        }
-        uint32_t name_color = focused || (hovered && card->active) ? palette->text_highlight : palette->text;
-        float caption_y = tile_y + tile_height + 3.0f * block;
-        draw_clipped(draw_list, font, tile_x, caption_y, tile_width, tile->game, name_color);
-        draw_clipped(draw_list, font, tile_x, caption_y + text_height + 2.0f * block, tile_width, tile->line,
-                     palette->text_disabled);
-    }
-}
-
-// The list of the short window: at the card's right, a thin line on its
-// left, the header with the page indicator, then one row per game (the name,
-// "core · when" dim under it), four at most.
-static void draw_list_column(ImDrawList* draw_list, const ContinueViewCard* card, float block, float x, float y,
-                             float width, float height, ContinueViewAction* action)
-{
-    const RetroUiPalette* palette = retro_ui_palette();
-    const ContinueViewShelf* shelf = &card->shelf;
-    float pad = PANEL_PADDING * block;
-    float line_gap = LINE_GAP * block;
-    float font = ImGui::GetFontSize();
-    float text_height = std::ceil(font);
-    draw_list->AddRectFilled(ImVec2(x, y + pad), ImVec2(x + block, y + height - pad),
-                             retro_ui_color_imgui(palette->button_face));
-    float inner_x = x + pad;
-    float inner_width = width - 2.0f * pad;
-    float top = y + pad;
-    draw_list->AddText(ImGui::GetFont(), font, ImVec2(inner_x, top), retro_ui_color_imgui(palette->section),
-                       shelf->header);
-    draw_pager(draw_list, shelf, font, block, inner_x + inner_width, top, action);
-    float line_y = top + text_height + line_gap;
-    draw_list->AddRectFilled(ImVec2(inner_x, line_y), ImVec2(inner_x + inner_width, line_y + block),
-                             retro_ui_color_imgui(palette->button_face));
-    float row_pad = 2.0f * block;
-    float row_height = 2.0f * text_height + line_gap + 2.0f * row_pad;
-    float row_y = line_y + block + 3.0f * block;
-    for (uint32_t i = 0; i < shelf->tile_count; i++)
-    {
-        const ContinueViewTile* tile = &shelf->tiles[i];
-        char id[16] = {};
-        std::snprintf(id, sizeof(id), "row%u", i);
-        bool hovered = false;
-        if (click_area(id, inner_x, row_y, inner_width, row_height, &hovered) && card->active)
+        if (click_area(id, tile_x, tile_y, tile_width, tile_height + TILE_CAPTION * block, &hovered) && card->active)
         {
             action->tile_chosen = static_cast<int32_t>(i);
         }
@@ -456,65 +472,106 @@ static void draw_list_column(ImDrawList* draw_list, const ContinueViewCard* card
         bool lit = card->active && hovered;
         if (focused)
         {
-            draw_frame(draw_list, inner_x, row_y, inner_width, row_height, block, 0xFFFFFFFFu);
+            draw_frame(draw_list, tile_x, tile_y, tile_width, tile_height, block, 0xFFFFFFFFu);
         }
         else if (lit)
         {
-            draw_frame(draw_list, inner_x, row_y, inner_width, row_height, block, palette->highlight);
+            draw_frame(draw_list, tile_x, tile_y, tile_width, tile_height, block, palette->highlight);
         }
-        float text_x = inner_x + row_pad + block;
-        float text_width = inner_width - 2.0f * (row_pad + block);
-        draw_clipped(draw_list, font, text_x, row_y + row_pad, text_width, tile->game,
+        float caption_y = tile_y + tile_height + 3.0f * block;
+        draw_clipped(draw_list, font, tile_x, caption_y, tile_width, tile->game,
                      focused || lit ? palette->text_highlight : palette->text);
-        draw_clipped(draw_list, font, text_x, row_y + row_pad + text_height + line_gap, text_width, tile->line,
+        draw_clipped(draw_list, font, tile_x, caption_y + text_height + 2.0f * block, tile_width, tile->line,
                      palette->text_disabled);
-        row_y += row_height + block;
     }
+}
+
+// The list of the short window, at the card's right (a thin line on its
+// left): the header, then one row per game (its small picture, the name,
+// "core · when" dim under it), four at most, filling the card's height.
+static void draw_list_column(ImDrawList* draw_list, const ImGuiPlatformIO* platform_io, const ContinueViewCard* card,
+                             const ContinueViewPanelGeometry* g, float x, float y, ContinueViewAction* action)
+{
+    const RetroUiPalette* palette = retro_ui_palette();
+    const ContinueViewShelf* shelf = &card->shelf;
+    float block = g->block;
+    float font = ImGui::GetFontSize();
+    float text_height = std::ceil(font);
+    float line_gap = LINE_GAP * block;
+    float width = g->list_width;
+    float separator_x = std::floor(x - PANEL_GAP * block * 0.5f);
+    draw_list->AddRectFilled(ImVec2(separator_x, y), ImVec2(separator_x + block, y + g->card_height),
+                             retro_ui_color_imgui(palette->button_face));
+    float row_y = draw_header(draw_list, shelf, font, block, x, y, width, action);
+    float row_pad = ROW_PADDING * block;
+    for (uint32_t i = 0; i < shelf->tile_count; i++)
+    {
+        const ContinueViewTile* tile = &shelf->tiles[i];
+        char id[16] = {};
+        std::snprintf(id, sizeof(id), "row%u", i);
+        bool hovered = false;
+        if (click_area(id, x, row_y, width, g->row_height, &hovered) && card->active)
+        {
+            action->tile_chosen = static_cast<int32_t>(i);
+        }
+        bool focused = card->active && card->focus_tile == static_cast<int32_t>(i);
+        bool lit = card->active && hovered;
+        draw_list->AddRectFilled(ImVec2(x, row_y), ImVec2(x + width, row_y + g->row_height),
+                                 retro_ui_color_imgui(palette->panel_face));
+        if (focused)
+        {
+            draw_frame(draw_list, x, row_y, width, g->row_height, block, 0xFFFFFFFFu);
+        }
+        else if (lit)
+        {
+            draw_frame(draw_list, x, row_y, width, g->row_height, block, palette->highlight);
+        }
+        float picture_x = x + row_pad;
+        float picture_y = std::floor(row_y + (g->row_height - g->tile_height) * 0.5f);
+        draw_tile_picture(draw_list, platform_io, tile, font, block, picture_x, picture_y, g->tile_width,
+                          g->tile_height);
+        float text_x = picture_x + g->tile_width + 2.0f * row_pad;
+        float text_width = x + width - row_pad - text_x;
+        float words_height = 2.0f * text_height + line_gap;
+        float text_y = std::floor(row_y + (g->row_height - words_height) * 0.5f);
+        draw_clipped(draw_list, font, text_x, text_y, text_width, tile->game,
+                     focused || lit ? palette->text_highlight : palette->text);
+        draw_clipped(draw_list, font, text_x, text_y + text_height + line_gap, text_width, tile->line,
+                     palette->text_disabled);
+        row_y += g->row_height + ROW_GAP * block;
+    }
+}
+
+// `text` wrapped in `width`, no more than `lines` lines of `line_height`
+// (the rest cut off). Returns the height drawn.
+static float draw_wrapped_lines(ImDrawList* draw_list, float font_size, float x, float y, float width,
+                                float line_height, float lines, const char* text, uint32_t argb)
+{
+    float most = line_height * lines;
+    draw_list->PushClipRect(ImVec2(x, y), ImVec2(x + width, y + most), true);
+    float drawn = draw_wrapped(draw_list, font_size, x, y, width, text, argb);
+    draw_list->PopClipRect();
+    return drawn < most ? drawn : most;
 }
 
 ContinueViewAction continue_view_draw_panel(ImFont* pixel_font, int32_t scale, const ContinueViewCard* card,
                                             float top, float screen_width, float screen_height)
 {
     ContinueViewAction action;
-    float block = static_cast<float>(scale);
-    const ImGuiIO& io = ImGui::GetIO();
+    ContinueViewPanelGeometry g;
+    continue_view_panel_geometry(scale, card->shelf.tile_count > 0, top, screen_width, screen_height, &g);
+    float block = g.block;
     retro_ui_push_theme(pixel_font, scale);
     const RetroUiPalette* palette = retro_ui_palette();
 
     float pad = PANEL_PADDING * block;
-    float gap = PANEL_GAP * block;
     float line_gap = LINE_GAP * block;
     float font = ImGui::GetFontSize();
-    float big = PIXEL_FONT_IMGUI_UNIT * (block + 1.0f);
-    float button_height = BUTTON_HEIGHT * block;
+    float name_font = PIXEL_FONT_IMGUI_UNIT * 2.0f * block;   // double size: still whole pixels
+    float text_height = std::ceil(font);
 
-    // Taller than wide: stacked. If it doesn't fit the height, the hint
-    // goes first, then the picture gets shorter (never below a third).
-    ContinueViewLayout layout = continue_view_panel_layout(screen_width, screen_height, scale);
-    bool stacked = layout == ContinueViewLayout::stacked_shelf;
-    bool list = layout == ContinueViewLayout::side_list;
-    float area_height = screen_height - top;
-    PanelMeasure m;
-    float picture_room = CONTINUE_VIEW_STACKED_PICTURE_HEIGHT;
-    panel_measure(&m, card, scale, stacked, list, true, picture_room);
-    if (m.height > area_height && m.hint)
-    {
-        panel_measure(&m, card, scale, stacked, list, false, picture_room);
-    }
-    if (stacked && m.height > area_height)
-    {
-        float excess = (m.height - area_height) / block;
-        picture_room = CONTINUE_VIEW_STACKED_PICTURE_HEIGHT - excess;
-        float least = CONTINUE_VIEW_STACKED_PICTURE_HEIGHT / 3.0f;
-        picture_room = picture_room > least ? picture_room : least;
-        panel_measure(&m, card, scale, stacked, list, false, picture_room);
-    }
-    float x = std::floor((io.DisplaySize.x - m.width) * 0.5f);
-    float y = std::floor(top + (area_height - m.height) * 0.5f);
-    y = y > top ? y : top;
-
-    ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(m.width, m.height), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(g.x, g.y), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(g.width, g.height), ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, block);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, retro_ui_color_vec4(palette->field_face));
@@ -536,82 +593,97 @@ ContinueViewAction continue_view_draw_panel(ImFont* pixel_font, int32_t scale, c
     const ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     draw_list->AddCallback(platform_io.DrawCallback_SetSamplerNearest, nullptr);   // the pixel font stays sharp
 
-    float text_x = x + pad;
-    float text_y = y + pad;
-    float column = m.column;
-    if (stacked)
+    // The picture in its box at the card's top left.
+    float card_x = g.x + pad;
+    float card_y = g.y + pad;
+    float picture_width = 0.0f;
+    float picture_height = 0.0f;
+    continue_view_panel_picture_size(card, &g, &picture_width, &picture_height);
+    draw_picture(draw_list, &platform_io, card_x, card_y, g.picture_width, g.picture_height, picture_width,
+                 picture_height, card->texture, card->u_max, card->v_max);
+
+    // The words: beside the picture (side by side) or under it.
+    bool beside = g.layout == ContinueViewLayout::side_shelf;
+    float words_x = beside ? card_x + g.picture_width + PANEL_GAP * block : card_x;
+    float words_y = beside ? card_y : card_y + g.picture_height + 6.0f * block;
+    float column = g.words_width;
+    float buttons_y = card_y + g.card_height - BUTTONS_AND_HINT * block;
+    if (beside)
     {
-        // The picture across the card's width, then the words under it.
-        draw_picture(draw_list, &platform_io, x + pad, y + pad, column, m.picture_height, m.picture_width,
-                     m.picture_height, card->texture, card->u_max, card->v_max);
-        text_y = y + pad + m.picture_height + gap;
-        text_y += draw_wrapped(draw_list, big, text_x, text_y, column, card->game, palette->text_highlight) + line_gap;
-        char line[CLIP_TEXT_MAX] = {};
-        core_when_line(line, sizeof(line), card);
-        text_y += draw_clipped(draw_list, font, text_x, text_y, column, line, palette->text_disabled);
+        words_y += draw_wrapped_lines(draw_list, name_font, words_x, words_y, column, NAME_LINE * block,
+                                      NAME_LINES_SIDE, card->game, palette->text_highlight) + line_gap;
+        words_y += draw_clipped(draw_list, font, words_x, words_y, column, card->core, palette->text_disabled) +
+                   line_gap;
+        words_y += draw_clipped(draw_list, font, words_x, words_y, column, card->when, palette->text_disabled);
         if (card->reason[0] != '\0')
         {
-            text_y += line_gap;
-            draw_wrapped(draw_list, font, text_x, text_y, column, card->reason, palette->text);
+            // As many lines as fit above the buttons.
+            words_y += line_gap;
+            float room = buttons_y - BUTTON_GAP * block - words_y;
+            float lines = std::floor(room / text_height);
+            if (lines >= 1.0f)
+            {
+                draw_wrapped_lines(draw_list, font, words_x, words_y, column, text_height, lines, card->reason,
+                                   palette->text);
+            }
         }
     }
     else
     {
-        // The picture centered by the text in its square room; black without one.
-        float room = CONTINUE_VIEW_PICTURE_WIDTH * block;
-        float room_height = m.inner_height;
-        draw_picture(draw_list, &platform_io, x + pad + (room - m.picture_width) * 0.5f,
-                     std::floor(y + pad + (room_height - m.picture_height) * 0.5f), m.picture_width, m.picture_height,
-                     m.picture_width, m.picture_height, card->texture, card->u_max, card->v_max);
-        text_x = x + pad + room + gap;
-        text_y += draw_wrapped(draw_list, big, text_x, text_y, column, card->game, palette->text_highlight) + line_gap;
-        text_y += draw_wrapped(draw_list, font, text_x, text_y, column, card->core, palette->text_disabled) + line_gap;
-        text_y += draw_wrapped(draw_list, font, text_x, text_y, column, card->when, palette->text_disabled);
+        words_y += draw_clipped(draw_list, name_font, words_x, words_y, column, card->game, palette->text_highlight) +
+                   line_gap;
+        char line[CLIP_TEXT_MAX] = {};
+        core_when_line(line, sizeof(line), card);
+        words_y += draw_clipped(draw_list, font, words_x, words_y, column, line, palette->text_disabled);
         if (card->reason[0] != '\0')
         {
-            text_y += line_gap;
-            draw_wrapped(draw_list, font, text_x, text_y, column, card->reason, palette->text);
+            words_y += line_gap;
+            draw_wrapped_lines(draw_list, font, words_x, words_y, column, text_height, 2.0f, card->reason,
+                               palette->text);
         }
     }
 
-    // The buttons at the bottom of the card's column (the hint under them).
-    float button_y = y + pad + m.inner_height - m.bottom_height + BUTTON_GAP * block;
+    // The buttons at the bottom of the words, the hint under them. Two: the
+    // recommended one twice as wide (the mockup's 2:1).
+    float button_height = BUTTON_HEIGHT * block;
     bool on_buttons = card->active && card->focus_tile < 0;
     if (card->second_label[0] == '\0')
     {
-        if (panel_button("first", card->first_label, text_x, button_y, column, button_height, on_buttons))
+        if (panel_button("first", card->first_label, words_x, buttons_y, column, button_height, on_buttons))
         {
             action.pressed = card->first;
         }
     }
     else
     {
-        float half = std::floor((column - BUTTON_GAP * block) * 0.5f);
-        if (panel_button("first", card->first_label, text_x, button_y, half, button_height,
+        float first_width = std::floor((column - BUTTON_GAP * block) * 2.0f / 3.0f);
+        float second_width = column - BUTTON_GAP * block - first_width;
+        if (panel_button("first", card->first_label, words_x, buttons_y, first_width, button_height,
                          on_buttons && !card->focus_second))
         {
             action.pressed = card->first;
         }
-        if (panel_button("second", card->second_label, text_x + column - half, button_y, half, button_height,
-                         on_buttons && card->focus_second))
+        if (panel_button("second", card->second_label, words_x + column - second_width, buttons_y, second_width,
+                         button_height, on_buttons && card->focus_second))
         {
             action.pressed = card->second;
         }
     }
-    if (m.hint)
+    if (card->hint[0] != '\0')
     {
-        draw_wrapped(draw_list, font, text_x, button_y + button_height + line_gap, column, card->hint,
+        draw_clipped(draw_list, font, words_x, buttons_y + button_height + line_gap, column, card->hint,
                      palette->text_disabled);
     }
 
-    if (card->shelf.tile_count > 0 && list)
+    if (card->shelf.tile_count > 0 && g.layout == ContinueViewLayout::side_list)
     {
-        float card_width = std::floor(CONTINUE_VIEW_PANEL_WIDTH * block);
-        draw_list_column(draw_list, card, block, x + card_width, y, m.width - card_width, m.height, &action);
+        draw_list_column(draw_list, &platform_io, card, &g, card_x + g.picture_width + PANEL_GAP * block, card_y,
+                         &action);
     }
     else if (card->shelf.tile_count > 0)
     {
-        draw_shelf(draw_list, &platform_io, card, block, x, y + pad + m.inner_height + pad, m.width, &action);
+        draw_shelf(draw_list, &platform_io, card, &g, card_x, card_y + g.card_height + SECTION_GAP * block,
+                   g.width - 2.0f * pad, &action);
     }
     draw_list->AddCallback(platform_io.DrawCallback_SetSamplerLinear, nullptr);
     ImGui::End();
